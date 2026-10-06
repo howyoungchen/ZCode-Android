@@ -15,7 +15,7 @@
     <string name="lang_follow_system">跟随系统</string>
     <string name="lang_chinese">中文</string>
     <string name="lang_english">English</string>
-    <string name="author_line">本软件由 Damian2012 独立编写</string>
+    <string name="author_line">由 howyoungchen 维护（fork 自 Damian2012 的 ZCode-Android）</string>
     <string name="issues_line">遇到问题请在 GitHub 提交 issue</string>
     <string name="about_footer">Zemote · ZCode 远程控制客户端（协议复刻，独立实现）\n仅用于连接你自己的设备，请遵守服务条款与当地法律。</string>
 
@@ -144,8 +144,6 @@
     <string name="brand_color">品牌色</string>
     <string name="theme_color">主题颜色</string>
     <string name="pick_palette">挑选一套属于你的配色</string>
-    <string name="dynamic_color">动态取色</string>
-    <string name="dynamic_color_sub">Android 12+ 根据壁纸自动配色（开启后覆盖上方品牌色）</string>
     <string name="mode">模式</string>
     <string name="light_dark">亮暗模式</string>
     <string name="always_light">始终使用浅色主题</string>
@@ -172,11 +170,7 @@
     <string name="unnamed_session">未命名会话</string>
     <string name="connecting">正在连接…</string>
     <string name="not_connected">未连接</string>
-    <string name="brand_iris">鸢尾</string>
-    <string name="brand_sky">晴空</string>
-    <string name="brand_lime">青柠</string>
-    <string name="brand_rose">蔷薇</string>
-    <string name="brand_warm_orange">暖橙</string>
+    <string name="brand_zai">ZCode 黑白</string>
     <string name="status_connected">已连接</string>
     <string name="qr_align">对准桌面端的配对二维码</string>
     <string name="qr_permission_denied">未授权相机，无法扫码配对</string>

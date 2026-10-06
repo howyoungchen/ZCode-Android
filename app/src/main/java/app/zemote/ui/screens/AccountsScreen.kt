@@ -10,6 +10,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -190,6 +191,7 @@ fun AccountsScreen(
             text = { Text(stringResource(R.string.add_device)) },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
+            shape = RoundedCornerShape(12.dp),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(24.dp),
@@ -238,35 +240,27 @@ private fun EmptyStateContent(onAdd: () -> Unit, modifier: Modifier = Modifier) 
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // 渐变光斑插画
+        // 官方启动壳同款：黑色渐变圆角方块 + 白色图标 + 细高光描边
         Box(
-            modifier = Modifier.size(132.dp),
+            modifier = Modifier.size(120.dp),
             contentAlignment = Alignment.Center,
         ) {
             Box(
                 modifier = Modifier
-                    .size(132.dp)
+                    .size(120.dp)
                     .background(
                         Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primaryContainer,
-                                MaterialTheme.colorScheme.secondaryContainer,
-                                MaterialTheme.colorScheme.tertiaryContainer,
-                            )
+                            listOf(Color(0xFF000000), Color(0xFF151718)),
                         ),
-                        RoundedCornerShape(44.dp),
+                        RoundedCornerShape(30.dp),
                     )
-            )
-            Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(32.dp))
+                    .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(30.dp))
             )
             Icon(
                 Icons.Rounded.Devices,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(44.dp),
+                tint = Color(0xFFFFFFFF),
+                modifier = Modifier.size(48.dp),
             )
         }
         Spacer(modifier = Modifier.height(28.dp))
@@ -281,7 +275,7 @@ private fun EmptyStateContent(onAdd: () -> Unit, modifier: Modifier = Modifier) 
         Spacer(modifier = Modifier.height(24.dp))
         Button(
             onClick = onAdd,
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(8.dp),
             contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
         ) {
             Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -309,11 +303,12 @@ private fun AccountCard(
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (active) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceContainer
+            containerColor = if (active) app.zemote.ui.theme.selectedContainerColor()
+            else app.zemote.ui.theme.cardContainerColor()
         ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             modifier = Modifier
@@ -321,7 +316,7 @@ private fun AccountCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DeviceAvatar(id = account.id, iconSize = 24)
+            DeviceAvatar(id = account.id, iconSize = 20, corner = 10)
 
             Spacer(modifier = Modifier.width(14.dp))
 
@@ -331,8 +326,6 @@ private fun AccountCard(
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = if (active) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(3.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -361,15 +354,14 @@ private fun AccountCard(
                     Surface(
                         onClick = onDisconnect,
                         shape = CircleShape,
-                        color = if (active) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
-                        else MaterialTheme.colorScheme.secondaryContainer,
+                        color = Color.Transparent,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     ) {
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(38.dp)) {
                             Icon(
                                 Icons.Rounded.LinkOff,
                                 contentDescription = stringResource(R.string.disconnect),
-                                tint = if (active) MaterialTheme.colorScheme.onPrimaryContainer
-                                else MaterialTheme.colorScheme.onSecondaryContainer,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -436,7 +428,7 @@ private fun RenameDialog(initial: String, onConfirm: (String) -> Unit, onDismiss
                 value = text,
                 onValueChange = { text = it },
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(8.dp),
             )
         },
         confirmButton = {
@@ -462,7 +454,7 @@ private fun AddDeviceBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        containerColor = app.zemote.ui.theme.cardContainerColor(),
     ) {
         Column(
             modifier = Modifier
@@ -490,7 +482,7 @@ private fun AddDeviceBottomSheet(
                 supportingText = { Text(stringResource(R.string.remote_url_hint)) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -499,14 +491,14 @@ private fun AddDeviceBottomSheet(
                 onValueChange = { label = it },
                 label = { Text(stringResource(R.string.device_name_optional)) },
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth(),
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(
                     onClick = onScan,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Rounded.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -516,7 +508,7 @@ private fun AddDeviceBottomSheet(
                 Button(
                     onClick = { if (url.isNotBlank()) onUrlSubmit(url, label) },
                     enabled = url.isNotBlank(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(),
                     modifier = Modifier.weight(1f),
                 ) {

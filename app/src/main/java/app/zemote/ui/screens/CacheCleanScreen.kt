@@ -466,11 +466,11 @@ private fun CacheItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-            else MaterialTheme.colorScheme.surfaceContainer,
+                app.zemote.ui.theme.selectedContainerColor()
+            else app.zemote.ui.theme.cardContainerColor(),
         ),
     ) {
         Row(
@@ -490,13 +490,13 @@ private fun CacheItemRow(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Rounded.Storage,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),
                 )
             }

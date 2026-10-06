@@ -74,7 +74,7 @@ fun CrashScreen(log: String, onRestart: () -> Unit) {
         // 日志区域 - 可滚动但限制最大高度
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
@@ -105,7 +105,7 @@ fun CrashScreen(log: String, onRestart: () -> Unit) {
                     clipboard.setPrimaryClip(ClipData.newPlainText(logTitle, log))
                     Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
                 },
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -115,7 +115,7 @@ fun CrashScreen(log: String, onRestart: () -> Unit) {
 
             OutlinedButton(
                 onClick = onRestart,
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))

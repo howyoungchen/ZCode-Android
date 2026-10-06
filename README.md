@@ -7,9 +7,11 @@ Android 端的 ZCode 远程控制客户端。通过逆向官方 Web 远程控制
 
 Kotlin + Jetpack Compose（Material 3）编写，全部代码为独立实现。
 
-> **AI 参与说明**：本项目在开发过程中有 AI（大语言模型）辅助编写部分代码；整体架构与核心协议实现由项目作者独立完成并负责，AI 辅助产出经人工审查、修正后纳入代码库。
+> **Fork 说明**：本仓库 fork 自 [Damianjiang/ZCode-Android](https://github.com/Damianjiang/ZCode-Android)，原项目由 Damian2012 独立开发；fork 之后的功能开发与维护由 [howyoungchen](https://github.com/howyoungchen) 负责。
+>
+> **AI 参与说明**：原项目在开发过程中有 AI（大语言模型）辅助编写部分代码；整体架构与核心协议实现由原作者独立完成并负责，AI 辅助产出经人工审查、修正后纳入代码库。
 
-📱 **在线预览**: [damianjiang.github.io/ZCode-Android](https://damianjiang.github.io/ZCode-Android)
+📱 **在线预览**: [howyoungchen.github.io/ZCode-Android](https://howyoungchen.github.io/ZCode-Android)
 
 <p align="center">
   <img src="screenshots/step1_home.png" width="32%" alt="设备列表 - 连接桌面 ZCode" />
@@ -55,7 +57,7 @@ Kotlin + Jetpack Compose（Material 3）编写，全部代码为独立实现。
 需要 JDK 17 和 Android SDK 35。
 
 ```bash
-git clone https://github.com/Damianjiang/ZCode-Android.git
+git clone https://github.com/howyoungchen/ZCode-Android.git
 cd ZCode-Android
 ./gradlew assembleRelease   # Windows 用 gradlew.bat
 ```
@@ -70,6 +72,14 @@ cd ZCode-Android
 1. 桌面端 ZCode 打开远程控制，生成配对链接
 2. App 内添加设备，粘贴链接或扫码
 3. 配对完成后选择工作区，进入会话即可对话
+
+## 📚 项目文档
+
+- [架构文档](docs/architecture.md) — 模块划分、协议栈分层、关键流程时序
+- [协议接口文档](docs/protocol.md) — 逆向协议逐层规范：消息、字段、时序参数
+- [数据模型](docs/data-model.md) — 本地存储（DataStore / SharedPreferences / Keystore）与运行时数据
+- [Runbook 运维手册](docs/runbook.md) — 构建、发布、日志与故障排查
+- [ADR 决策记录](docs/adr/README.md) — 关键技术决策及其背景与代价
 
 ## 📁 项目结构
 
@@ -137,7 +147,7 @@ app/src/main/java/app/zemote/
 ## 社区
 
 - **QQ 群**：[1090759263](https://qm.qq.com/q/1090759263) — 使用交流、问题反馈
-- **GitHub Issues**：[github.com/Damianjiang/ZCode-Android/issues](https://github.com/Damianjiang/ZCode-Android/issues)
+- **GitHub Issues**：[github.com/howyoungchen/ZCode-Android/issues](https://github.com/howyoungchen/ZCode-Android/issues)
 
 ## 📄 许可证
 

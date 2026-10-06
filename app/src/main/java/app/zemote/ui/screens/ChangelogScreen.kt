@@ -292,9 +292,9 @@ private fun ChangelogCard(entry: ChangelogEntry, isLatest: Boolean) {
     var expanded by remember(entry.version) { mutableStateOf(false) }
 
     Surface(
-        color = if (isLatest) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(22.dp),
+        color = if (isLatest) app.zemote.ui.theme.selectedContainerColor()
+        else app.zemote.ui.theme.cardContainerColor(),
+        shape = RoundedCornerShape(12.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded }
@@ -306,8 +306,6 @@ private fun ChangelogCard(entry: ChangelogEntry, isLatest: Boolean) {
                     entry.version,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = if (isLatest) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurface,
                 )
                 if (isLatest) {
                     Spacer(modifier = Modifier.width(8.dp))

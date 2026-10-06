@@ -9,7 +9,11 @@ control desktop ZCode sessions from your phone — no browser needed.
 Written in Kotlin with Jetpack Compose (Material 3). All code is an independent
 implementation.
 
-📱 **Live preview**: [damianjiang.github.io/ZCode-Android](https://damianjiang.github.io/ZCode-Android)
+> **Fork note**: This repository is a fork of [Damianjiang/ZCode-Android](https://github.com/Damianjiang/ZCode-Android),
+> originally developed by Damian2012. All development and maintenance after the fork
+> are handled by [howyoungchen](https://github.com/howyoungchen).
+
+📱 **Live preview**: [howyoungchen.github.io/ZCode-Android](https://howyoungchen.github.io/ZCode-Android)
 
 <p align="center">
   <img src="screenshots/step1_home.png" width="32%" alt="Device list - connect desktop ZCode" />
@@ -72,7 +76,7 @@ implementation.
 Requires JDK 17 and Android SDK 35.
 
 ```bash
-git clone https://github.com/Damianjiang/ZCode-Android.git
+git clone https://github.com/howyoungchen/ZCode-Android.git
 cd ZCode-Android
 ./gradlew assembleRelease   # gradlew.bat on Windows
 ```
@@ -88,6 +92,14 @@ Requires Android 12+ (minSdk 28), arm64-v8a only.
 1. Open remote control in desktop ZCode and generate a pairing link
 2. Add a device in the app — paste the link or scan the QR code
 3. Once paired, pick a workspace and start chatting
+
+## 📚 Project docs
+
+- [Architecture](docs/architecture.md) — module layout, protocol layering, key flows
+- [Protocol spec](docs/protocol.md) — layer-by-layer spec of the reverse-engineered protocol
+- [Data model](docs/data-model.md) — local storage (DataStore / SharedPreferences / Keystore) and runtime data
+- [Runbook](docs/runbook.md) — build, release, logging, troubleshooting
+- [ADRs](docs/adr/README.md) — key technical decisions and their trade-offs
 
 ## 📁 Project structure
 
@@ -158,7 +170,7 @@ Flutter version of this project (same wire behavior).
 ## Community
 
 - **QQ Group**: [1090759263](https://qm.qq.com/q/1090759263) — discussions and bug reports
-- **GitHub Issues**: [github.com/Damianjiang/ZCode-Android/issues](https://github.com/Damianjiang/ZCode-Android/issues)
+- **GitHub Issues**: [github.com/howyoungchen/ZCode-Android/issues](https://github.com/howyoungchen/ZCode-Android/issues)
 
 ## 📄 License
 

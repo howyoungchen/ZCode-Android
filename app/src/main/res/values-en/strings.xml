@@ -15,7 +15,7 @@
     <string name="lang_follow_system">Follow system</string>
     <string name="lang_chinese">中文</string>
     <string name="lang_english">English</string>
-    <string name="author_line">Independently developed by Damian2012</string>
+    <string name="author_line">Maintained by howyoungchen (fork of the ZCode-Android project by Damian2012)</string>
     <string name="issues_line">Found a problem? Please open an issue on GitHub</string>
     <string name="about_footer">Zemote · ZCode remote control client (independent protocol implementation).\nFor connecting to your own devices only. Follow the terms of service and local laws.</string>
 
@@ -142,8 +142,6 @@
     <string name="brand_color">Brand color</string>
     <string name="theme_color">Theme color</string>
     <string name="pick_palette">Pick a palette that fits you</string>
-    <string name="dynamic_color">Dynamic color</string>
-    <string name="dynamic_color_sub">Android 12+ tints from your wallpaper (overrides brand color above)</string>
     <string name="mode">Mode</string>
     <string name="light_dark">Light &amp; dark</string>
     <string name="always_light">Always use light theme</string>
@@ -170,11 +168,7 @@
     <string name="unnamed_session">Unnamed session</string>
     <string name="connecting">Connecting…</string>
     <string name="not_connected">Offline</string>
-    <string name="brand_iris">Iris</string>
-    <string name="brand_sky">Sky</string>
-    <string name="brand_lime">Lime</string>
-    <string name="brand_rose">Rose</string>
-    <string name="brand_warm_orange">Warm orange</string>
+    <string name="brand_zai">ZCode Mono</string>
     <string name="status_connected">Connected</string>
     <string name="qr_align">Point the camera at the pairing QR code on your desktop</string>
     <string name="qr_permission_denied">Camera permission denied — scanning unavailable</string>

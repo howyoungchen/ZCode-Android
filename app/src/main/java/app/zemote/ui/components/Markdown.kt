@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -158,7 +159,12 @@ private val RE_STRIKE = Regex("~~([^~]+)~~")
 private val STYLE_BOLD = SpanStyle(fontWeight = FontWeight.SemiBold)
 private val STYLE_ITALIC = SpanStyle(fontStyle = FontStyle.Italic)
 private val STYLE_STRIKE = SpanStyle(textDecoration = TextDecoration.LineThrough)
-private val STYLE_LINK = SpanStyle(color = Color(0xFF5B9BFF), textDecoration = TextDecoration.Underline)
+
+/** 官方链接色：浅色 sky-600 / 深色 sky-400（--color-brand），按正文亮度二选一 */
+private fun linkStyle(base: Color) = SpanStyle(
+    color = if (base.luminance() > 0.5f) Color(0xFF0284C7) else Color(0xFF38BDF8),
+    textDecoration = TextDecoration.Underline,
+)
 
 private fun parseBlocks(src: String): List<MdBlock> {
     val out = mutableListOf<MdBlock>()
@@ -245,7 +251,7 @@ private fun buildAnnotatedString(src: String, color: Color): AnnotatedString {
     RE_INLINE_CODE.findAll(src).forEach { tokens += Tok(it.range.first, it.range.last + 1, codeStyle, it.groupValues[1], isCode = true) }
     // 链接 [t](u)
     RE_LINK.findAll(src).forEach { m ->
-        tokens += Tok(m.range.first, m.range.last + 1, STYLE_LINK, m.groupValues[1])
+        tokens += Tok(m.range.first, m.range.last + 1, linkStyle(color), m.groupValues[1])
     }
     // 粗斜体 / 粗体 / 斜体 / 删除线
     RE_BOLD_ITALIC.findAll(src).forEach { m ->

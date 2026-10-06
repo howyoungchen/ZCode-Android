@@ -13,6 +13,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Circle
 import androidx.compose.material.icons.rounded.Close
@@ -102,6 +104,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -221,24 +224,24 @@ fun TasksScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                // 新建对话按钮放在最顶部，方便点击
+                // 新建对话按钮放在最顶部，方便点击（官方主按钮：黑底白字圆角卡）
                 item {
                     Surface(
                         onClick = { onOpenSession(null) },
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Icon(Icons.Rounded.Add, contentDescription = null)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 stringResource(R.string.start_new_chat),
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
                         }
                     }
@@ -483,7 +486,7 @@ fun ChatScreen(
                 sendError?.let { msg ->
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -640,18 +643,18 @@ private fun ChatHeaderActions(
     val hasPending = pendingInteractions.isNotEmpty()
     val hasBackground = backgroundWorks.any { it.status == "running" }
 
-    FilledTonalIconButton(
+    IconButton(
         onClick = onToggle,
         modifier = Modifier.size(36.dp),
         enabled = enabled,
     ) {
-        val tint = if (hasPending || hasBackground) MaterialTheme.colorScheme.primary
+        val tint = if (hasPending || hasBackground) MaterialTheme.colorScheme.secondary
         else MaterialTheme.colorScheme.onSurfaceVariant
         Icon(
             Icons.Rounded.TaskAlt,
             contentDescription = stringResource(R.string.tasks_panel),
             tint = tint,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(20.dp),
         )
         if (hasPending) {
             Spacer(modifier = Modifier.width(2.dp))
@@ -991,8 +994,9 @@ private fun MessageTimeline(
             } else if (showEmpty) {
                 item {
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        shape = RoundedCornerShape(16.dp),
+                        color = app.zemote.ui.theme.cardContainerColor(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
@@ -1032,12 +1036,12 @@ private fun MessageTimeline(
                         Box(
                             modifier = Modifier
                                 .size(28.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
                             contentAlignment = Alignment.Center,
                         ) {
                             if (isLoadingOlder) {
                                 CircularProgressIndicator(
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     strokeWidth = 2.dp,
                                     modifier = Modifier.size(14.dp),
                                 )
@@ -1045,7 +1049,7 @@ private fun MessageTimeline(
                                 Icon(
                                     Icons.Rounded.History,
                                     contentDescription = stringResource(R.string.load_older_messages),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(16.dp),
                                 )
                             }
@@ -1054,7 +1058,7 @@ private fun MessageTimeline(
                         Text(
                             stringResource(R.string.load_older_messages),
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -1176,8 +1180,9 @@ private fun TimelineRow(row: ConvRow, loadAttachment: suspend (String) -> app.ze
 @Composable
 private fun ImagePlaceholder(row: ConvRow) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(16.dp),
+        color = app.zemote.ui.theme.cardContainerColor(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
@@ -1205,10 +1210,11 @@ private fun UserBubble(row: ConvRow, loadAttachment: suspend (String) -> app.zem
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
         if (row.text.isNotBlank() || row.inputText.isNotBlank() || row.attachments.isEmpty()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                // 官方用户消息：右对齐中性气泡（浅 #e5e5e5 / 深 #2b2b2b），大圆角 + 小尾角
                 Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 6.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp),
                     modifier = Modifier.widthIn(max = 320.dp),
                 ) {
                     Text(
@@ -1238,8 +1244,9 @@ private fun UserBubble(row: ConvRow, loadAttachment: suspend (String) -> app.zem
 @Composable
 private fun AttachmentChip(fileName: String) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(10.dp),
+        color = app.zemote.ui.theme.cardContainerColor(),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -1305,8 +1312,9 @@ private fun ImageAttachmentView(
         if (bmp != null) bitmap = bmp else failed = true
     }
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(14.dp),
+        color = app.zemote.ui.theme.cardContainerColor(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         val bmp = bitmap
         when {
@@ -1379,11 +1387,12 @@ private fun QueueBar(
     val rowHeightPx = with(LocalDensity.current) { rowHeight.toPx() }
 
     Surface(
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-        shape = RoundedCornerShape(14.dp),
+        color = app.zemote.ui.theme.cardContainerColor(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp),
+            .padding(horizontal = 12.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1563,7 +1572,7 @@ private fun PendingFilesBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1578,8 +1587,9 @@ private fun PendingFilesBar(
         }
         files.forEach { f ->
             Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(10.dp),
+                color = app.zemote.ui.theme.cardContainerColor(),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
                 Row(
                     modifier = Modifier.padding(start = 10.dp, top = 2.dp, bottom = 2.dp, end = 2.dp),
@@ -1637,8 +1647,9 @@ private fun ThinkingBlock(row: ConvRow) {
         if (!userToggled) expanded = streaming
     }
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(14.dp),
+        color = app.zemote.ui.theme.cardContainerColor(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
@@ -1704,8 +1715,9 @@ private fun ToolGroupCard(rows: List<ConvRow>, onOpenSubagent: (ConvRow) -> Unit
     val anyFailed = rows.any { it.toolStatus == "error" }
 
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f),
-        shape = RoundedCornerShape(14.dp),
+        color = app.zemote.ui.theme.cardContainerColor(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded },
@@ -1745,7 +1757,7 @@ private fun ToolGroupCard(rows: List<ConvRow>, onOpenSubagent: (ConvRow) -> Unit
                     Text(
                         stringResource(R.string.subagent_open),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier
                             .clickable { onOpenSubagent(subagentRow) }
                             .padding(horizontal = 6.dp, vertical = 2.dp),
@@ -1789,7 +1801,7 @@ private fun ToolGroupCard(rows: List<ConvRow>, onOpenSubagent: (ConvRow) -> Unit
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.55f), CircleShape),
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.65f), CircleShape),
                         )
                     } else if (row.toolStatus == "error") {
                         Spacer(modifier = Modifier.width(6.dp))
@@ -1797,10 +1809,16 @@ private fun ToolGroupCard(rows: List<ConvRow>, onOpenSubagent: (ConvRow) -> Unit
                     }
                     if (row.additions != null && row.additions > 0) {
                         Spacer(modifier = Modifier.width(6.dp))
+                        // 官方 diff 绿：浅 green-600 / 深 green-500
+                        val diffGreen = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) {
+                            app.zemote.ui.theme.DiffAdded
+                        } else {
+                            app.zemote.ui.theme.DiffAddedDark
+                        }
                         Text(
                             "+${row.additions}",
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = Color(0xFF3FB950),
+                            color = diffGreen,
                         )
                     }
                 }
@@ -2033,8 +2051,9 @@ private fun TaskPanel(
                 }
                 items(interactions, key = { it.requestId }) { inter ->
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        shape = RoundedCornerShape(16.dp),
+                        color = app.zemote.ui.theme.cardContainerColor(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
@@ -2103,8 +2122,9 @@ private fun TaskPanel(
                 }
                 items(runningWorks, key = { it.workId }) { work ->
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        color = app.zemote.ui.theme.cardContainerColor(),
                         shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(
@@ -2207,8 +2227,9 @@ private fun fileNameOf(path: String): String =
 // ────────────────────────── 发送栏（官方功能布局） ──────────────────────────
 
 /**
- * 全新发送栏：上输入框，下控制条。
- * 控制条从左到右：附件 · 思考等级 · 模型 · 上下文 · 停止/排队/发送。
+ * 发送栏：对齐官方远控页 —— 单张圆角输入卡（卡底 + 1px 边框），
+ * 上输入框，下控制条：附件 · 思考等级 | 模型 · 上下文 | 停止/排队/发送。
+ * 发送键为官方样式：圆形实心（浅色黑 / 深色白）+ 向上箭头。
  */
 @Composable
 private fun ComposerBar(
@@ -2227,23 +2248,24 @@ private fun ComposerBar(
     onSend: (queued: Boolean) -> Unit,
     onStop: () -> Unit,
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        tonalElevation = 2.dp,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .navigationBarsPadding(),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .navigationBarsPadding(),
+        Surface(
+            color = app.zemote.ui.theme.cardContainerColor(),
+            shape = RoundedCornerShape(24.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            // ── 输入框 ──
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth(),
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
             ) {
+                // ── 输入框（卡内无边框，占满宽度） ──
                 OutlinedTextField(
                     value = text,
                     onValueChange = onTextChange,
@@ -2252,64 +2274,60 @@ private fun ComposerBar(
                             if (working) stringResource(R.string.composer_hint_queued)
                             else stringResource(R.string.composer_hint),
                             style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
                     textStyle = MaterialTheme.typography.bodyMedium,
                     minLines = 1,
-                    maxLines = 5,
+                    maxLines = 6,
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color.Transparent,
                         unfocusedBorderColor = Color.Transparent,
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                     ),
                     // 回车换行，发送走右侧按钮（多行输入）
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            // ── 控制条 ──
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                // ── 左侧：附件 + 思考等级 ──
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AttachmentButton(onClick = onAttach)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    ThoughtLevelButton(
-                        config = config,
-                        onSelect = onThoughtSelect,
-                    )
-                }
-
-                // ── 中间：模型 + 上下文 ──
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ModelButton(
-                        config = config,
-                        modelOptions = modelOptions,
-                        onSelect = onModelSelect,
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    UsageButton(usage = usage)
-                }
-
-                // ── 右侧：停止 / 排队 / 发送 ──
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (working) {
-                        StopButton(onClick = onStop, workId = stopWorkId)
-                        if (text.isNotBlank()) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            QueueButton(onClick = { onSend(true) })
-                        }
-                    } else {
-                        SendButton(
-                            enabled = enabled && text.isNotBlank(),
-                            onClick = { onSend(false) },
+                Spacer(modifier = Modifier.height(2.dp))
+                // ── 控制条（官方：卡内一排幽灵图标按钮） ──
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    // ── 左侧：附件 + 思考等级 ──
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AttachmentButton(onClick = onAttach)
+                        ThoughtLevelButton(
+                            config = config,
+                            onSelect = onThoughtSelect,
                         )
+                    }
+
+                    // ── 右侧：模型 · 上下文 · 停止/排队/发送 ──
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ModelButton(
+                            config = config,
+                            modelOptions = modelOptions,
+                            onSelect = onModelSelect,
+                        )
+                        UsageButton(usage = usage)
+                        if (working) {
+                            StopButton(onClick = onStop, workId = stopWorkId)
+                            if (text.isNotBlank()) {
+                                QueueButton(onClick = { onSend(true) })
+                            }
+                        } else {
+                            SendButton(
+                                enabled = enabled && text.isNotBlank(),
+                                onClick = { onSend(false) },
+                            )
+                        }
                     }
                 }
             }
@@ -2319,17 +2337,16 @@ private fun ComposerBar(
 
 // ────────────────────────── 按钮组件 ──────────────────────────
 
-/** 附件按钮：加号图标，唤起系统文件选择器（图片/任意文件） */
+/** 附件按钮：加号幽灵图标，唤起系统文件选择器（图片/任意文件） */
 @Composable
 private fun AttachmentButton(onClick: () -> Unit) {
-    FilledTonalIconButton(
-        onClick = onClick,
-        modifier = Modifier.size(36.dp),
-        colors = IconButtonDefaults.filledTonalIconButtonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ),
-    ) {
-        Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.attach), modifier = Modifier.size(18.dp))
+    IconButton(onClick = onClick, modifier = Modifier.size(38.dp)) {
+        Icon(
+            Icons.Rounded.Add,
+            contentDescription = stringResource(R.string.attach),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -2347,18 +2364,12 @@ private fun ThoughtLevelButton(
     if (levels.isEmpty()) return // 当前模型不支持思考，不显示按钮
 
     Box {
-        FilledTonalIconButton(
-            onClick = { open = true },
-            modifier = Modifier.size(36.dp),
-            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            ),
-        ) {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(38.dp)) {
             Icon(
                 Icons.Rounded.Psychology,
                 contentDescription = stringResource(R.string.thought_level),
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.size(17.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
             )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -2391,21 +2402,13 @@ private fun ModelButton(
     val currentProvider = config?.provider
     val currentModel = config?.model
 
-    val label = if (currentModel != null) modelLabel(currentProvider ?: "", currentModel) else stringResource(R.string.model_label)
-
     Box {
-        FilledTonalIconButton(
-            onClick = { open = true },
-            modifier = Modifier.size(36.dp),
-            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            ),
-        ) {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(38.dp)) {
             Icon(
                 Icons.Rounded.Memory,
                 contentDescription = stringResource(R.string.model_label),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(17.dp),
+                modifier = Modifier.size(20.dp),
             )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -2442,26 +2445,21 @@ private fun UsageButton(usage: app.zemote.protocol.ConvUsage?) {
     if (usage == null || usage.maxTokens == 0L) return
 
     val ratio = usage.ratio.coerceIn(0f, 1f)
+    // 官方上下文配色以 sky 为主：低用量 sky，中段 warning 黄，将满 error 红
     val color = when {
-        ratio < 0.5f -> MaterialTheme.colorScheme.primary
+        ratio < 0.5f -> MaterialTheme.colorScheme.secondary
         ratio < 0.8f -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.error
     }
 
     Box {
-        FilledTonalIconButton(
-            onClick = { open = true },
-            modifier = Modifier.size(36.dp),
-            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            ),
-        ) {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(38.dp)) {
             // M3 饼图图标，颜色随用量分档
             Icon(
                 Icons.Rounded.PieChart,
                 contentDescription = stringResource(R.string.context_usage),
                 tint = color,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(19.dp),
             )
         }
         val ctx2 = LocalContext.current
@@ -2493,39 +2491,49 @@ private fun UsageButton(usage: app.zemote.protocol.ConvUsage?) {
     }
 }
 
-/** 停止按钮：红色圆形，AI 工作中显示 */
+/** 停止按钮：官方样式 —— 圆形描边 + 方块停止图标，AI 工作中显示 */
 @Composable
 private fun StopButton(onClick: () -> Unit, workId: String? = null) {
-    FilledIconButton(
+    Surface(
         onClick = onClick,
         shape = CircleShape,
-        colors = IconButtonDefaults.filledIconButtonColors(
-            containerColor = MaterialTheme.colorScheme.error,
-            contentColor = MaterialTheme.colorScheme.onError,
-        ),
-        modifier = Modifier.size(40.dp),
+        color = Color.Transparent,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.size(38.dp),
     ) {
-        Icon(Icons.Rounded.Stop, contentDescription = stringResource(R.string.stop), modifier = Modifier.size(18.dp))
-    }
-}
-
-/** 排队发送按钮：AI 工作中时把当前输入加入队列 */
-@Composable
-private fun QueueButton(onClick: () -> Unit) {
-    FilledTonalIconButton(
-        onClick = onClick,
-        shape = CircleShape,
-        modifier = Modifier.size(40.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, modifier = Modifier.size(17.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(stringResource(R.string.usage_queue), style = MaterialTheme.typography.labelMedium)
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.Rounded.Stop,
+                contentDescription = stringResource(R.string.stop),
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }
 
-/** 发送按钮：绿色主色，空闲时显示 */
+/** 排队发送按钮：圆形描边幽灵键，AI 工作中时把当前输入加入队列 */
+@Composable
+private fun QueueButton(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = Color.Transparent,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.size(38.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.AutoMirrored.Rounded.PlaylistAdd,
+                contentDescription = stringResource(R.string.usage_queue),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(19.dp),
+            )
+        }
+    }
+}
+
+/** 发送按钮：官方样式 —— 圆形实心（浅色黑 / 深色白）+ 向上箭头 */
 @Composable
 private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
     FilledIconButton(
@@ -2536,12 +2544,12 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ),
-        modifier = Modifier.size(40.dp),
+        modifier = Modifier.size(38.dp),
     ) {
         Icon(
-            Icons.AutoMirrored.Rounded.Send,
+            Icons.Rounded.ArrowUpward,
             contentDescription = stringResource(R.string.send),
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(19.dp),
         )
     }
 }
@@ -2645,11 +2653,14 @@ private fun SectionText(text: String) {
 
 @Composable
 private fun SessionRow(title: String, subtitle: String?, highlight: Boolean, onClick: () -> Unit) {
+    // 官方列表行：圆角卡 + 边框；运行中（highlight）用 selected 底（10% 前景叠加）
     Surface(
         onClick = onClick,
-        color = if (highlight) MaterialTheme.colorScheme.secondaryContainer
-        else MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(20.dp),
+        color = if (highlight) app.zemote.ui.theme.selectedContainerColor()
+        else app.zemote.ui.theme.cardContainerColor(),
+        shape = RoundedCornerShape(12.dp),
+        border = if (highlight) null
+        else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
@@ -2662,16 +2673,13 @@ private fun SessionRow(title: String, subtitle: String?, highlight: Boolean, onC
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    color = if (highlight) MaterialTheme.colorScheme.onSecondaryContainer
-                    else MaterialTheme.colorScheme.onSurface,
                 )
                 if (subtitle != null) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         subtitle,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (highlight) MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }

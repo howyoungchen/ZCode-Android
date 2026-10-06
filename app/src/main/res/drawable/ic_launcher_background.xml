@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Zemote 新版自适应图标背景：紫→青品牌渐变 -->
+<!-- 官方 ZCode 远控页启动壳同款背景：纵向 #000000 → #151718 渐变 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -10,19 +10,12 @@
     <aapt:attr name="android:fillColor">
       <gradient
           android:type="linear"
-          android:startX="0"
+          android:startX="54"
           android:startY="0"
-          android:endX="108"
+          android:endX="54"
           android:endY="108">
-        <item
-            android:offset="0.0"
-            android:color="#FF7B5CFF" />
-        <item
-            android:offset="0.55"
-            android:color="#FF4E8DF7" />
-        <item
-            android:offset="1.0"
-            android:color="#FF00C9B2" />
+        <item android:offset="0.0" android:color="#FF000000" />
+        <item android:offset="1.0" android:color="#FF151718" />
       </gradient>
     </aapt:attr>
   </path>

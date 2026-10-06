@@ -212,7 +212,7 @@ fun SettingsScreen(
                     onClick = {
                         runCatching {
                             ctx.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Damianjiang/ZCode-Android"))
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/howyoungchen/ZCode-Android"))
                             )
                         }
                     },
@@ -272,18 +272,20 @@ fun SettingsScreen(
 internal fun SectionLabel(text: String) {
     Text(
         text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 6.dp, top = 6.dp),
     )
 }
 
 @Composable
 internal fun SettingsCard(content: @Composable () -> Unit) {
+    // 官方卡片：白/neutral-800 底 + 1px 边框 + 圆角 xl（12）
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = app.zemote.ui.theme.cardContainerColor()),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         content()
     }
@@ -307,8 +309,8 @@ internal fun SettingRow(
         Icon(
             icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
         )
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {

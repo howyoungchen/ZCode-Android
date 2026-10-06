@@ -1,33 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Zemote 新版前景：广播信号弧 + 圆点（安全区内，白色） -->
+<!-- ZCode 前景：官方 Web 远控页启动壳的 Z 闪电 Logo 原始路径
+     （256x218 viewBox 缩放并居中到 108dp 安全区内，白色） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-  <!-- 中心圆点 -->
-  <path
-      android:fillColor="#FFFFFF"
-      android:pathData="M52,66 m-7,0 a7,7 0 1 1 14,0 a7,7 0 1 1 -14,0" />
-  <!-- 内弧 -->
-  <path
-      android:pathData="M42.1,56.1 A14,14 0 0 1 61.9,56.1"
-      android:strokeColor="#FFFFFF"
-      android:strokeWidth="7"
-      android:strokeLineCap="round"
-      android:fillColor="#00000000" />
-  <!-- 中弧 -->
-  <path
-      android:pathData="M35,49 A24,24 0 0 1 69,49"
-      android:strokeColor="#FFFFFF"
-      android:strokeWidth="7"
-      android:strokeLineCap="round"
-      android:fillColor="#00000000" />
-  <!-- 外弧 -->
-  <path
-      android:pathData="M28,42 A34,34 0 0 1 76,42"
-      android:strokeColor="#FFFFFF"
-      android:strokeWidth="7"
-      android:strokeLineCap="round"
-      android:fillColor="#00000000" />
+  <group
+      android:scaleX="0.2344"
+      android:scaleY="0.2344"
+      android:translateX="24"
+      android:translateY="28.4">
+    <!-- 上横杠（左上圆角） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M134.4,0.13 L116.48,25.602 C113.665,29.57 109.054,32.002 104.064,32.002 L6.4,32.002 L6.4,0 Z" />
+    <!-- 主闪电斜杠 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M256,0.13 L102.401,217.732 L0,217.732 L153.599,0.13 Z" />
+    <!-- 下横杠（右下圆角） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M121.601,217.732 L139.65,192.134 C142.465,188.166 147.076,185.734 152.067,185.734 L249.604,185.734 L249.604,217.736 Z" />
+  </group>
 </vector>

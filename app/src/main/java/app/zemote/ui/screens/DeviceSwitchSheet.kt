@@ -55,7 +55,7 @@ fun DeviceSwitchSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        containerColor = app.zemote.ui.theme.cardContainerColor(),
     ) {
         Column(
             modifier = Modifier
@@ -84,9 +84,9 @@ fun DeviceSwitchSheet(
 
                     Surface(
                         onClick = { onSwitch(account) },
-                        color = if (isActive) MaterialTheme.colorScheme.secondaryContainer
-                        else MaterialTheme.colorScheme.surfaceContainerLow,
-                        shape = RoundedCornerShape(18.dp),
+                        color = if (isActive) app.zemote.ui.theme.selectedContainerColor()
+                        else app.zemote.ui.theme.cardContainerColor(),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -128,7 +128,7 @@ fun DeviceSwitchSheet(
                                 isActive -> Icon(
                                     Icons.Rounded.Check,
                                     contentDescription = stringResource(R.string.current_device),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp),
                                 )
                                 deviceStatus.state == ConnectionState.CONNECTED -> IconButton(
@@ -160,8 +160,8 @@ fun DeviceSwitchSheet(
 
             Surface(
                 onClick = { onAddDevice() },
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                shape = RoundedCornerShape(18.dp),
+                color = app.zemote.ui.theme.cardContainerColor(),
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp),

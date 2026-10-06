@@ -255,7 +255,7 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(modifier = Modifier.height(20.dp))
-        Button(onClick = onRetry, shape = RoundedCornerShape(14.dp)) {
+        Button(onClick = onRetry, shape = RoundedCornerShape(8.dp)) {
             Icon(Icons.Rounded.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(6.dp))
             Text(stringResource(R.string.retry_connect))
@@ -380,13 +380,16 @@ private fun WorkspaceCard(
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = app.zemote.ui.theme.cardContainerColor(),
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             WorkspaceAvatar(key = key, icon = Icons.Rounded.Folder)

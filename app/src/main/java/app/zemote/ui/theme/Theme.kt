@@ -1,21 +1,21 @@
 package app.zemote.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.luminance
 
 // ─── 品牌色盘 ───
 
-/** 一套品牌色的三色组（主 / 辅 / 点缀，各自含 on 与 container 色） */
+/**
+ * 一套品牌色的三色组（主 / 辅 / 点缀，各自含 on 与 container 色）。
+ * 结构保留以兼容个性化页；内容对齐官方 ZCode 远程控制页（zai 主题）。
+ */
 data class BrandTrio(
     val primary: Color, val onPrimary: Color, val primaryContainer: Color, val onPrimaryContainer: Color,
     val secondary: Color, val onSecondary: Color, val secondaryContainer: Color, val onSecondaryContainer: Color,
@@ -30,70 +30,24 @@ data class PaletteSpec(
     val dark: BrandTrio,
 )
 
+/**
+ * 唯一色盘「zai」：官方 ZCode 远程控制页的黑白单色 + sky brand。
+ * - primary：浅色近黑（neutral-950）/ 深色近白（neutral-50），主按钮即官方样式
+ * - secondary：sky 色系（浅 sky-600 / 深 sky-400），官方 --color-brand
+ * - tertiary：官方 warning 黄（浅 yellow-700 / 深 yellow-500），连接中态使用
+ */
 val Palettes: List<PaletteSpec> = listOf(
     PaletteSpec(
-        "iris", "鸢尾", Color(0xFF5B54D6),
+        "zai", "ZCode", Color(0xFF0A0A0A),
         BrandTrio(
-            Color(0xFF5B54D6), Color(0xFFFFFFFF), Color(0xFFE4DFFF), Color(0xFF17066B),
-            Color(0xFF00696B), Color(0xFFFFFFFF), Color(0xFF9CF1F2), Color(0xFF002020),
-            Color(0xFF7B580B), Color(0xFFFFFFFF), Color(0xFFFFDEA9), Color(0xFF281800),
+            Color(0xFF0A0A0A), Color(0xFFFAFAFA), Color(0xFFF0F9FF), Color(0xFF0C4A6E),
+            Color(0xFF0284C7), Color(0xFFFFFFFF), Color(0xFFE0F2FE), Color(0xFF075985),
+            Color(0xFFA16207), Color(0xFFFFFFFF), Color(0xFFFEF9C3), Color(0xFF422006),
         ),
         BrandTrio(
-            Color(0xFFC5C1FF), Color(0xFF2A1F87), Color(0xFF433CA0), Color(0xFFE3DFFF),
-            Color(0xFF80D4D6), Color(0xFF003737), Color(0xFF004F50), Color(0xFF9CF1F2),
-            Color(0xFFF2BF48), Color(0xFF402D00), Color(0xFF5C4200), Color(0xFFFFDEA9),
-        ),
-    ),
-    PaletteSpec(
-        "blue", "晴空", Color(0xFF415F91),
-        BrandTrio(
-            Color(0xFF415F91), Color(0xFFFFFFFF), Color(0xFFD6E3FF), Color(0xFF001A41),
-            Color(0xFF565F71), Color(0xFFFFFFFF), Color(0xFFDAE2F9), Color(0xFF1A2B41),
-            Color(0xFF705575), Color(0xFFFFFFFF), Color(0xFFFAD8FD), Color(0xFF2A122B),
-        ),
-        BrandTrio(
-            Color(0xFFAAC7FF), Color(0xFF002E69), Color(0xFF284777), Color(0xFFD6E3FF),
-            Color(0xFFBEC6DC), Color(0xFF283141), Color(0xFF3E4758), Color(0xFFDAE2F9),
-            Color(0xFFDDBCE0), Color(0xFF412741), Color(0xFF583E5C), Color(0xFFFAD8FD),
-        ),
-    ),
-    PaletteSpec(
-        "green", "青柠", Color(0xFF386A20),
-        BrandTrio(
-            Color(0xFF386A20), Color(0xFFFFFFFF), Color(0xFFB7F397), Color(0xFF052F00),
-            Color(0xFF55624C), Color(0xFFFFFFFF), Color(0xFFD8E7CB), Color(0xFF141E10),
-            Color(0xFF38666A), Color(0xFFFFFFFF), Color(0xFFBCEBF0), Color(0xFF002021),
-        ),
-        BrandTrio(
-            Color(0xFF9CD67D), Color(0xFF0E3900), Color(0xFF205105), Color(0xFFB7F397),
-            Color(0xFFBCC7B0), Color(0xFF27321F), Color(0xFF3D4836), Color(0xFFD8E7CB),
-            Color(0xFFA0CFD3), Color(0xFF00363A), Color(0xFF1F4D52), Color(0xFFBCEBF0),
-        ),
-    ),
-    PaletteSpec(
-        "rose", "蔷薇", Color(0xFF8E4957),
-        BrandTrio(
-            Color(0xFF8E4957), Color(0xFFFFFFFF), Color(0xFFFFD9DE), Color(0xFF3A0713),
-            Color(0xFF75565B), Color(0xFFFFFFFF), Color(0xFFFFD9DE), Color(0xFF2B1519),
-            Color(0xFF7C5636), Color(0xFFFFFFFF), Color(0xFFFFDCC2), Color(0xFF2E1501),
-        ),
-        BrandTrio(
-            Color(0xFFFFB2C0), Color(0xFF551122), Color(0xFF72333F), Color(0xFFFFD9DE),
-            Color(0xFFE4BDC3), Color(0xFF43292E), Color(0xFF5C3F44), Color(0xFFFFD9DE),
-            Color(0xFFEFBD94), Color(0xFF472A0D), Color(0xFF653F22), Color(0xFFFFDCC2),
-        ),
-    ),
-    PaletteSpec(
-        "orange", "暖橙", Color(0xFF8F4C38),
-        BrandTrio(
-            Color(0xFF8F4C38), Color(0xFFFFFFFF), Color(0xFFFFDBD1), Color(0xFF3A0B01),
-            Color(0xFF775651), Color(0xFFFFFFFF), Color(0xFFFFDAD3), Color(0xFF2C150F),
-            Color(0xFF6C5D2F), Color(0xFFFFFFFF), Color(0xFFF5E1A7), Color(0xFF231A00),
-        ),
-        BrandTrio(
-            Color(0xFFFFB59F), Color(0xFF551F10), Color(0xFF73362A), Color(0xFFFFDBD1),
-            Color(0xFFE7BDB6), Color(0xFF2C1510), Color(0xFF442A25), Color(0xFFFFDAD3),
-            Color(0xFFD8C58C), Color(0xFF241A04), Color(0xFF423F19), Color(0xFFF5E1A7),
+            Color(0xFFFAFAFA), Color(0xFF0A0A0A), Color(0xFF0A3346), Color(0xFF7DD3FC),
+            Color(0xFF38BDF8), Color(0xFF082F49), Color(0xFF0A3346), Color(0xFF7DD3FC),
+            Color(0xFFEAB308), Color(0xFF1C1917), Color(0xFF422006), Color(0xFFFDE047),
         ),
     ),
 )
@@ -176,17 +130,31 @@ fun ZemoteTheme(
         ThemeManager.ThemeMode.FOLLOW_SYSTEM -> isSystemInDarkTheme()
     }
     val spec = paletteSpec(themeState.palette)
-    val colorScheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && themeState.dynamicColor -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> spec.dark.darkScheme()
-        else -> spec.light.lightScheme()
-    }
+    // 动态取色（Material You）会让整体观感偏离官方远控页配色，已移除；
+    // 仅保留浅色 / 深色 / 跟随系统三种模式。
+    val colorScheme = if (darkTheme) spec.dark.darkScheme() else spec.light.lightScheme()
     MaterialTheme(
         colorScheme = colorScheme,
         typography = ZemoteTypography,
         content = content,
     )
+}
+
+/**
+ * 官方卡片底色：浅色主题为白卡（neutral-50 底上的 --color-card），
+ * 深色主题为 neutral-800。官方远控页的卡片靠 1px 边框而非色调叠加区分，
+ * 配合 [androidx.compose.foundation.border] 使用。
+ */
+@Composable
+fun cardContainerColor(): Color {
+    val scheme = MaterialTheme.colorScheme
+    return if (scheme.background.luminance() > 0.5f) scheme.surfaceContainerLowest
+    else scheme.surfaceContainer
+}
+
+/** 官方 selected 底（10% 前景色叠加）：列表选中行 / 运行中会话的高亮 */
+@Composable
+fun selectedContainerColor(): Color {
+    val scheme = MaterialTheme.colorScheme
+    return if (scheme.background.luminance() > 0.5f) Color(0xFFE5E5E5) else Color(0xFF2E2E2E)
 }

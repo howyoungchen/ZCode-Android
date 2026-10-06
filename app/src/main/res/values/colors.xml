@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Zemote「Iris」品牌色（与 Compose 主题保持一致） -->
-    <color name="zemote_primary">#5B54D6</color>
-    <color name="zemote_on_primary">#FFFFFF</color>
-    <color name="zemote_secondary">#00696B</color>
-    <color name="zemote_tertiary">#7B580B</color>
-    <color name="zemote_background_light">#FCF8FF</color>
-    <color name="zemote_background_dark">#131318</color>
-    <color name="zemote_success">#2EB88A</color>
-    <color name="zemote_error">#BA1A1A</color>
+    <!-- 官方 ZCode 远控页（zai 主题）配色，与 Compose 主题保持一致 -->
+    <color name="zemote_primary">#0A0A0A</color>
+    <color name="zemote_on_primary">#FAFAFA</color>
+    <color name="zemote_secondary">#0284C7</color>
+    <color name="zemote_brand">#38BDF8</color>
+    <color name="zemote_background_light">#FAFAFA</color>
+    <color name="zemote_background_dark">#161616</color>
+    <color name="zemote_success">#16A34A</color>
+    <color name="zemote_error">#DC2626</color>
 </resources>

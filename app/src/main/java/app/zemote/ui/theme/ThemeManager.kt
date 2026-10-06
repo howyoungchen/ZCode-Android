@@ -17,8 +17,8 @@ import kotlinx.coroutines.launch
 /** 主题设置快照：模式（浅色/深色/跟随系统）+ 动态取色 + 品牌色盘 */
 data class ThemeState(
     val mode: ThemeManager.ThemeMode = ThemeManager.ThemeMode.FOLLOW_SYSTEM,
-    val dynamicColor: Boolean = true,
-    val palette: String = "iris",
+    val dynamicColor: Boolean = false,
+    val palette: String = "zai",
 )
 
 /**
@@ -42,8 +42,8 @@ class ThemeManager(private val dataStore: DataStore<Preferences>) {
             ?: ThemeMode.FOLLOW_SYSTEM
         ThemeState(
             mode = mode,
-            dynamicColor = prefs[DYNAMIC_COLOR_KEY] ?: true,
-            palette = prefs[PALETTE_KEY] ?: "iris",
+            dynamicColor = prefs[DYNAMIC_COLOR_KEY] ?: false,
+            palette = prefs[PALETTE_KEY] ?: "zai",
         )
     }.stateIn(scope, SharingStarted.Eagerly, ThemeState())
 

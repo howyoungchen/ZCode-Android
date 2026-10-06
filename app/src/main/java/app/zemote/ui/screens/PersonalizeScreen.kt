@@ -47,13 +47,9 @@ import androidx.compose.ui.unit.dp
 import app.zemote.ui.theme.Palettes
 import app.zemote.ui.theme.ThemeManager
 
-/** 个性化页：主题颜色色盘 + 亮暗模式 + 动态取色 */
+/** 个性化页：主题外观（官方 zai 配色）+ 亮暗模式 */
 private fun paletteLabel(ctx: android.content.Context, key: String): String = when (key) {
-    "iris" -> ctx.getString(R.string.brand_iris)
-    "blue" -> ctx.getString(R.string.brand_sky)
-    "green" -> ctx.getString(R.string.brand_lime)
-    "rose" -> ctx.getString(R.string.brand_rose)
-    "orange" -> ctx.getString(R.string.brand_warm_orange)
+    "zai" -> ctx.getString(R.string.brand_zai)
     else -> key
 }
 
@@ -98,35 +94,16 @@ fun PersonalizeScreen(
                         subtitle = stringResource(R.string.pick_palette),
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        Palettes.forEach { spec ->
-                            ColorSwatch(
-                                colors = listOf(spec.swatch, spec.light.secondaryContainer),
-                                label = paletteLabel(LocalContext.current, spec.key),
-                                selected = themeState.palette == spec.key,
-                                onClick = { themeManager.setPalette(spec.key) },
-                            )
-                        }
+                    // 对齐官方远控页配色：黑白单色 + sky 点缀，仅此一套
+                    Palettes.forEach { spec ->
+                        ColorSwatch(
+                            colors = listOf(spec.swatch, spec.light.secondary),
+                            label = paletteLabel(LocalContext.current, spec.key),
+                            selected = themeState.palette == spec.key,
+                            onClick = { themeManager.setPalette(spec.key) },
+                        )
                     }
                 }
-            }
-
-            SettingsCard {
-                SettingRow(
-                    icon = Icons.Rounded.Contrast,
-                    title = stringResource(R.string.dynamic_color),
-                    subtitle = stringResource(R.string.dynamic_color_sub),
-                    trailing = {
-                        Switch(
-                            checked = themeState.dynamicColor,
-                            onCheckedChange = { themeManager.setDynamicColor(it) },
-                        )
-                    },
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
-                )
             }
 
             SectionLabel(stringResource(R.string.mode))
