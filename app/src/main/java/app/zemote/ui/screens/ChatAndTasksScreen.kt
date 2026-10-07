@@ -14,6 +14,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -56,6 +57,11 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.CallSplit
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.GppBad
+import androidx.compose.material.icons.rounded.GppMaybe
+import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.Close
@@ -729,6 +735,9 @@ private fun ComposerSection(
         },
         onModelSelect = { provider, model ->
             scope.launch { runCatching { repo?.setModel(provider, model) } }
+        },
+        onModeSelect = { mode ->
+            scope.launch { runCatching { repo?.setCollaborationMode(mode) } }
         },
         onSend = onSend,
         onStop = onStop,
@@ -2503,6 +2512,7 @@ private fun ComposerBar(
     onAttach: () -> Unit,
     onThoughtSelect: (String) -> Unit,
     onModelSelect: (provider: String, model: String) -> Unit,
+    onModeSelect: (String) -> Unit,
     onSend: (queued: Boolean) -> Unit,
     onStop: () -> Unit,
 ) {
@@ -2561,14 +2571,15 @@ private fun ComposerBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    // ── 左：附件「+」 ──
+                    // ── 左：附件「+」· 切换模式「盾」 ──
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AttachmentButton(onClick = onAttach)
+                        ModeButton(config = config, onSelect = onModeSelect)
                     }
 
-                    // ── 右：上下文 · 模型 · 推理强度 · 停止/发送 ──
+                    // ── 右：上下文圆环 · 模型 · 推理强度 · 停止/发送 ──
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        UsageButton(usage = usage)
+                        ContextRingButton(usage = usage)
                         ModelButton(
                             config = config,
                             modelOptions = modelOptions,
@@ -2738,56 +2749,216 @@ private fun ModelButton(
     }
 }
 
-/** 上下文用量：官方以百分比小字呈现，颜色随用量分档，点击弹出明细 */
+/**
+ * 切换模式按钮：官方盾牌图标 + 权限模式菜单。
+ * 四档对应官方 switchCollaborationMode 的 plan/build/edit/yolo。
+ */
 @Composable
-private fun UsageButton(usage: app.zemote.protocol.ConvUsage?) {
+private fun ModeButton(
+    config: app.zemote.protocol.ConvConfig?,
+    onSelect: (String) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val current = config?.mode ?: "build"
+    val subtlest = app.zemote.ui.theme.subtlestColor()
+
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(32.dp)) {
+            Icon(
+                Icons.Rounded.GppMaybe,
+                contentDescription = stringResource(R.string.mode_switch),
+                tint = if (current == "yolo") MaterialTheme.colorScheme.tertiary else subtlest,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            ModeMenuItem("plan", R.string.mode_plan, R.string.mode_plan_desc, current, Icons.Rounded.Lightbulb) {
+                open = false; onSelect("plan")
+            }
+            HorizontalDivider()
+            ModeMenuItem("build", R.string.mode_build, R.string.mode_build_desc, current, Icons.Rounded.TouchApp) {
+                open = false; onSelect("build")
+            }
+            ModeMenuItem("edit", R.string.mode_edit, R.string.mode_edit_desc, current, Icons.Rounded.VerifiedUser) {
+                open = false; onSelect("edit")
+            }
+            ModeMenuItem("yolo", R.string.mode_yolo, R.string.mode_yolo_desc, current, Icons.Rounded.GppBad) {
+                open = false; onSelect("yolo")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModeMenuItem(
+    value: String,
+    titleRes: Int,
+    descRes: Int,
+    current: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(
+        leadingIcon = {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        },
+        trailingIcon = {
+            if (value == current) Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+        },
+        text = {
+            Column {
+                Text(stringResource(titleRes), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(descRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        onClick = onClick,
+    )
+}
+
+/**
+ * 上下文圆环按钮：官方以圆环进度呈现用量，点击弹出「上下文容量」面板。
+ */
+@Composable
+private fun ContextRingButton(usage: app.zemote.protocol.ConvUsage?) {
     var open by remember { mutableStateOf(false) }
     if (usage == null || usage.maxTokens == 0L) return
-
     val ratio = usage.ratio.coerceIn(0f, 1f)
-    // 官方上下文配色以 sky 为主：低用量 sky，中段 warning 黄，将满 error 红
-    val color = when {
-        ratio < 0.5f -> MaterialTheme.colorScheme.secondary
-        ratio < 0.8f -> MaterialTheme.colorScheme.tertiary
+    val ctx = LocalContext.current
+    val ringColor = when {
+        ratio < 0.8f -> MaterialTheme.colorScheme.secondary
         else -> MaterialTheme.colorScheme.error
     }
 
     Box {
-        Text(
-            "${(ratio * 100).toInt()}%",
-            style = MaterialTheme.typography.labelMedium,
-            color = color,
-            modifier = Modifier
-                .clickable { open = true }
-                .padding(horizontal = 6.dp, vertical = 6.dp),
-        )
-        val ctx2 = LocalContext.current
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        "${formatToken(usage.usedTokens)} / ${formatToken(usage.maxTokens)} tokens",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                },
-                onClick = { open = false },
-            )
-            if (usage.hitRate != null) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.usage_cache_hit, (usage.hitRate * 100).toInt()), style = MaterialTheme.typography.bodyMedium) },
-                    onClick = { open = false },
+        IconButton(
+            onClick = { open = true },
+            modifier = Modifier.size(32.dp),
+        ) {
+            Canvas(modifier = Modifier.size(18.dp)) {
+                val stroke = 2.5.dp.toPx()
+                drawArc(
+                    color = ringColor.copy(alpha = 0.25f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
+                )
+                drawArc(
+                    color = ringColor,
+                    startAngle = -90f,
+                    sweepAngle = 360f * ratio,
+                    useCenter = false,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
                 )
             }
-            for ((source, chars) in usage.breakdown) {
-                DropdownMenuItem(
-                    text = {
-                        Text(stringResource(R.string.usage_chars, sourceLabel(ctx2, source), "${(chars / 1000).toInt()}k"), style = MaterialTheme.typography.bodySmall)
-                    },
-                    onClick = { open = false },
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            CapacityPanel(usage)
+        }
+    }
+}
+
+/** 上下文容量面板（官方 chat.contextUsage 弹层） */
+@Composable
+private fun CapacityPanel(usage: app.zemote.protocol.ConvUsage) {
+    val ctx = LocalContext.current
+    val isZh = java.util.Locale.getDefault().language.startsWith("zh")
+    val ratio = usage.ratio.coerceIn(0f, 1f)
+    Column(
+        modifier = Modifier
+            .widthIn(min = 280.dp, max = 320.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.ctx_title),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                if (isZh) {
+                    "${formatTokenZh(usage.usedTokens)}/${formatTokenZh(usage.maxTokens)}（${(ratio * 1000).toInt() / 10.0}%）"
+                } else {
+                    "${formatToken(usage.usedTokens)}/${formatToken(usage.maxTokens)} (${(ratio * 1000).toInt() / 10.0}%)"
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        // 进度条：官方蓝色圆角细条
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(3.dp)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction = ratio)
+                    .height(6.dp)
+                    .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(3.dp)),
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        // 来源占比（按字符数折算百分比，降序），圆点颜色由深到浅
+        val totalChars = usage.breakdown.sumOf { it.second }.coerceAtLeast(1L)
+        usage.breakdown.sortedByDescending { it.second }.forEachIndexed { index, (source, chars) ->
+            val pct = chars * 100.0 / totalChars
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 2.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .background(
+                            MaterialTheme.colorScheme.secondary.copy(alpha = (1f - index * 0.13f).coerceIn(0.25f, 1f)),
+                            CircleShape,
+                        ),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    sourceLabel(ctx, source),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "${(pct * 10).toInt() / 10.0}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (usage.hitRate != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.ctx_hit_rate),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "${(usage.hitRate * 1000).toInt() / 10.0}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
     }
+}
+
+/** 中文习惯的 token 计数（≥1 万用「万」），对齐官方「22.1万/100万」 */
+private fun formatTokenZh(n: Long): String = when {
+    n >= 100_000_000 -> "${(n / 10_000_000) / 10.0}亿"
+    n >= 10_000 -> "${(n / 1_000) / 10.0}万"
+    else -> n.toString()
 }
 
 /**
@@ -2877,6 +3048,7 @@ private fun sourceLabel(ctx: android.content.Context, source: String): String = 
     "system_tool_schemas" -> ctx.getString(R.string.usage_system_tools)
     "mcp_tool_schemas" -> ctx.getString(R.string.usage_mcp_tools)
     "system_prompt" -> ctx.getString(R.string.usage_system_prompt)
+    "tool_prompt" -> ctx.getString(R.string.usage_tool_prompt)
     "skills" -> ctx.getString(R.string.usage_skills)
     "meta_user_context" -> ctx.getString(R.string.usage_other)
     else -> source

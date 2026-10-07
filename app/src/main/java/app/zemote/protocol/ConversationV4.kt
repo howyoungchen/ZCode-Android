@@ -1583,6 +1583,17 @@ class ConversationV4Session private constructor(
     suspend fun retryTurn(row: ConvRow): Boolean =
         rowCommand("retryTurn", row, emptyMap())
 
+    /** 切换权限模式（官方 switchCollaborationMode：plan / build / edit / yolo） */
+    suspend fun setCollaborationMode(mode: String): Boolean = withContext(Dispatchers.IO) {
+        val sessionId = _activeSessionId.value ?: return@withContext false
+        runCatching {
+            val res = sendCommand(sessionId, "switchCollaborationMode", mapOf("mode" to mode)) as? Map<*, *>
+            val status = res?.get("status")?.toString()
+            log("[v4] switchCollaborationMode($mode) status=$status")
+            status == null || !status.startsWith("reject")
+        }.onFailure { log("[v4] switchCollaborationMode failed: $it") }.getOrDefault(false)
+    }
+
     private suspend fun rowCommand(type: String, row: ConvRow, payload: Map<String, Any?>): Boolean =
         withContext(Dispatchers.IO) {
             val sessionId = _activeSessionId.value ?: return@withContext false

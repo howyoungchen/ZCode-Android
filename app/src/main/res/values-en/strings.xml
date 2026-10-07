@@ -317,4 +317,18 @@
     <string name="msg_changes">%1$d files changed +%2$d -%3$d</string>
     <string name="time_yesterday">Yesterday %1$s</string>
 
+    <!-- Mode switch and context capacity (wording aligned with official mode.label.glm / chat.contextUsage) -->
+    <string name="mode_switch">Switch mode</string>
+    <string name="mode_plan">Plan mode</string>
+    <string name="mode_plan_desc">Plan before editing.</string>
+    <string name="mode_build">Ask before changes</string>
+    <string name="mode_build_desc">Ask before file changes.</string>
+    <string name="mode_edit">Edit automatically</string>
+    <string name="mode_edit_desc">Edit files automatically.</string>
+    <string name="mode_yolo">Full access</string>
+    <string name="mode_yolo_desc">Run with fewer confirmations.</string>
+    <string name="ctx_title">Context windows</string>
+    <string name="ctx_hit_rate">Average cache hit rate</string>
+    <string name="usage_tool_prompt">Tool prompt</string>
+
 </resources>
