@@ -40,6 +40,11 @@ android {
         }
         debug {
             isPseudoLocalesEnabled = false
+            // 模拟器是 x86_64 架构，debug 包多打一份 x86_64 便于模拟器验证界面；
+            // release 仍只保留 arm64-v8a
+            ndk {
+                abiFilters += listOf("x86_64")
+            }
         }
     }
     compileOptions {
