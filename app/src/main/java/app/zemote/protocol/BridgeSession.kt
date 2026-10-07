@@ -20,6 +20,8 @@ class BridgeSession(
     private var _channels: ChannelClient
     /** CoroutineScope for the relay-payloads listener; restarted on swapBridge. */
     private var relayListenerScope: CoroutineScope? = null
+    /** relay 链路恢复回调的注销句柄（随 transport 一起换绑） */
+    private var linkRestoredHandle: (() -> Unit)? = null
 
     val workspaceKey: String? get() = bridge["workspaceKey"] as? String
     val initialTaskId: String? get() = bridge["initialTaskId"] as? String
@@ -32,6 +34,13 @@ class BridgeSession(
         _transport.onMessage = { frame -> _channels.handleMessage(frame) }
         // Listen for relay payloads and route rpc-frame(-ack) to the transport
         startRelayListener()
+        wireLinkRestored()
+    }
+
+    /** 链路恢复后重发未确认帧（传输层的重放缓冲在 rpc 断链时兜底） */
+    private fun wireLinkRestored() {
+        linkRestoredHandle?.invoke()
+        linkRestoredHandle = relayClient.addOnLinkRestored { _transport.replayUnacknowledged() }
     }
 
     var isRecovering = false
@@ -86,9 +95,8 @@ class BridgeSession(
         _transport.onMessage = { frame -> _channels.handleMessage(frame) }
         // Start fresh listener for the new bridge session
         startRelayListener()
-        // 通知持有此桥的 V4 会话：旧通道已整体替换，需要重新握手并重订阅。
-        // 旧实现只有 collector 没有触发方，断线恢复后会话永远停在死通道上
-        // （握手标志残留为已完成，新通道上的调用被桌面端拒绝），历史从此拉不到。
+        // 换绑链路恢复回调到新 transport，并递增 recovered 通知会话层重建
+        wireLinkRestored()
         recovered.value += 1
     }
 
@@ -98,6 +106,8 @@ class BridgeSession(
         if (_disposed) return
         _disposed = true
         degraded.value = null
+        linkRestoredHandle?.invoke()
+        linkRestoredHandle = null
         relayListenerScope?.cancel()
         relayListenerScope = null
         _transport.dispose()

@@ -77,15 +77,30 @@ class RelayClient(
         }
     }
 
-    fun send(payload: Map<String, Any>) {
+    /** 链路（重新）配对成功后的回调：注册方用返回的句柄注销自己 */
+    private val linkRestoredListeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
+
+    fun addOnLinkRestored(listener: () -> Unit): () -> Unit {
+        linkRestoredListeners.add(listener)
+        return { linkRestoredListeners.remove(listener) }
+    }
+
+    /**
+     * 发送一条 zcode_type payload。
+     * 返回是否已真正写入当前 socket：false 表示链路未配对（已入队待冲刷）或
+     * socket 已关闭。rpc-frame 传输层依赖该返回值决定是否保留帧等链路恢复后重发。
+     */
+    fun send(payload: Map<String, Any>): Boolean {
         if (_state.value != RelayState.PAIRED || webSocket == null) {
             if (outboundQueue.size < 100) {
                 onLog?.invoke("[relay] queued (${_state.value}): ${payload["zcode_type"]}")
                 outboundQueue.add(payload)
+            } else {
+                onLog?.invoke("[relay] dropped (queue full): ${payload["zcode_type"]}")
             }
-            return
+            return false
         }
-        sendFrame(mapOf(
+        return sendFrame(mapOf(
             "type" to "data",
             "payload" to payload,
             "client_ts" to System.currentTimeMillis()
@@ -205,11 +220,11 @@ class RelayClient(
         ))
     }
 
-    private fun sendFrame(frame: Map<String, Any>) {
+    /** 写入一帧到当前 socket；socket 已关闭时返回 false（调用方决定是否重发） */
+    private fun sendFrame(frame: Map<String, Any>): Boolean {
         val ws = webSocket
-        if (ws == null) return
-        val json = gson.toJson(frame)
-        ws.send(json)
+        if (ws == null) return false
+        return ws.send(gson.toJson(frame))
     }
 
     private fun handleRawMessage(text: String) {
@@ -279,6 +294,8 @@ class RelayClient(
                 wasPaired = true
                 startHeartbeat()
                 flushOutboundQueue()
+                // 通知各桥传输层：链路恢复，重发未确认的 rpc-frame
+                linkRestoredListeners.forEach { runCatching(it) }
             }
         }
     }

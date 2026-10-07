@@ -99,6 +99,8 @@ proof = base64url_nopad( HMAC-SHA256( key = utf8(passHash),
 
 限制：**512KB/片、最多 64 片、整消息 ≤16MB**。收到 rpc-frame-ack 做流控应答；重组完成后按 CRC32 校验再上交 ChannelClient。
 
+**可靠发送（对齐官方 l2t 传输层）**：出站帧保留在 ≤8MB 重放缓冲直到桌面端 `rpc-frame-ack(ackMessageSeq)` 确认；relay 重新配对后未确认消息整体重发（桌面端按重放/duplicate 容忍）。发送返回 false（链路断开）时游标停在当前帧等恢复。入站完整消息的 ack 队列化补发（丢失 ack 会让桌面端 45s 后判 replayGraceExceeded 降级桥）。计数器与发送在锁内进行，杜绝并发下的 seq/messageSeq 重复。桌面端侧的对应判定：`physicalGap`（漏收我方帧）、`replayGraceExceeded`（我方 ack 未达）。
+
 ## 6. IPC 值编码（IpcCodec.kt）
 
 二进制值编码，长度/计数一律 **7-bit 小端 varint**：

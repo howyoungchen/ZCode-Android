@@ -397,7 +397,6 @@ class ConversationV4Session private constructor(
     // openConversation 进行中标志：恢复重建必须避让，否则会拆掉刚建立的订阅，
     // 导致历史/模型等数据永远拉不到
     @Volatile private var opening = false
-    private var rebuilding = false
 
     init {
         // bridge 恢复后异步重建，不阻塞任何 openConversation 调用
@@ -410,16 +409,18 @@ class ConversationV4Session private constructor(
         }
     }
 
-    /** 由 [ZemoteClient.recoverActiveBridges] 在桥接恢复成功后调用，重建握手和所有订阅。 */
     /**
      * Bridge 恢复后仅重新注册事件监听 + 重新订阅，不清空任何状态。
      * 对齐官方 Flutter 的 _resubscribe()：保留 rows/config/revision 等，
      * 只断掉旧的 frame listener，在新生成的 ChannelClient 上重建。
+     *
+     * 连续多次恢复（如桌面端短时间内连判两次 rpc-transport-fault）用互斥串行：
+     * 旧实现的布尔守卫会直接丢弃进行中的第二次恢复，第二次降级后无人重订阅。
      */
+    private val rebuildMutex = Mutex()
+
     suspend fun rebuildSubscriptions() {
-        if (rebuilding) return
-        rebuilding = true
-        try {
+        rebuildMutex.withLock {
             log("[v4] bridge recovered, resubscribing only (preserving state)")
             flushPendingDeltas()
             val hadSessionsIndex = siSubId != null
@@ -437,15 +438,13 @@ class ConversationV4Session private constructor(
             handshakeDone = false
             connectionId = null
             runCatching { ensureHandshake() }
-                .onFailure { log("[v4] handshake after recovery failed: $it"); return }
+                .onFailure { log("[v4] handshake after recovery failed: $it"); return@withLock }
             // 重新订阅（不重置 rows，快照帧会自动填充）
             if (activeId != null) {
                 runCatching { subscribeConversation(activeId) }
                     .onFailure { log("[v4] resubscribe failed: $it") }
             }
             if (hadSessionsIndex) runCatching { openSessionsIndex() }
-        } finally {
-            rebuilding = false
         }
     }
 
