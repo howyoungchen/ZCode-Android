@@ -156,6 +156,8 @@ proof = base64url_nopad( HMAC-SHA256( key = utf8(passHash),
 
 **delta op 清单**：会话 `row.appended` / `row.upserted` / `row.removed` / `row.delta`（流式追加，60ms 批量提交）/ `state.updated`（config/usage/queue 等补丁）；会话列表 `session.upserted` / `session.removed`。
 
+**行结构（rows[]）**：公共字段 `{rowId:number, turnId, entityId?, createdAt, actions?{canFork, canEdit, canRetry, canRewindFiles}}`。`turnHeader`（回合头）带 `{state:"running"|"completedSuccess"|"completedInterrupted"|"failed", startedAt, endedAt?, activeMs?|durationMs?, fileChanges?{additions, deletions, files, state:"active"|"reverted"}}`——官方「已工作 N 分 M 秒」行与「N 个文件已更改 +a -d / 撤销」都取自这一行，不能在解析时丢弃；`assistantText` 带 `feedback:"like"|"dislike"?`（用户反馈回显）；`reasoning` 带 `durationMs?`（思考行耗时）。
+
 ### 8.3 命令信封与 CAS
 
 所有命令经 `sendConversationCommandV4(scope + {envelope})`：
@@ -184,6 +186,13 @@ invalid_type 拒绝（`expected string, received undefined`）。null 值必须�
 | sendQueuedNow / editQueueItem / deleteQueueItem | {queueItemId…} | 队列操作（edit 另带 newText） |
 | reorderQueueItem | {queueItemIds: 完整有序列表} | 队列排序 |
 | setAutoDrain | {autoDrain: Boolean} | 队列自动发送开关 |
+| setAssistantFeedback | {target:{rowId, entityId}, feedback:"like"\|"dislike"\|null} | 消息赞/踩反馈，null 清除 |
+| forkAssistant | {target:{rowId, entityId}} | 以该消息为起点分叉会话 |
+| applyFileRewind | {target:{rowId, entityId}} | 撤销该回合的文件更改 |
+| editUserQuery | {target:{rowId, entityId}, newText} | 编辑用户消息并重跑 |
+| retryTurn | {target:{rowId, entityId}} | 重跑该回合 |
+
+`target.rowId` 与 `beforeRowId` 一样**必须是 number**（官方 Zod 校验）。
 
 ### 8.5 历史窗口
 

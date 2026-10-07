@@ -121,6 +121,31 @@ data class ConvRow(
     val childSessionId: String? = null,
     /** 子智能体独有：子智能体类型（如 "agent" / "task" / "read" 等） */
     val subagentType: String? = null,
+    /** 消息实体 ID：官方反馈 / 分叉 / 撤销命令的 target.entityId */
+    val entityId: String? = null,
+    /** 用户对这条助手消息的反馈："like" | "dislike" | null */
+    val feedback: String? = null,
+    /** 所属回合 ID：用于计算「已工作」时长 */
+    val turnId: String? = null,
+    /** reasoning / turnHeader 的耗时毫秒（官方 durationMs） */
+    val durationMs: Long? = null,
+    /** turnHeader 独有：回合开始/结束时间戳（durationMs 缺失时兜底推算） */
+    val startedAt: Long? = null,
+    val endedAt: Long? = null,
+    /** turnHeader 独有：本回合文件更改汇总（撤销按钮与「N 个文件已更改」来源） */
+    val fileChanges: FileChanges? = null,
+    /** 行级可用操作（官方 rows[].actions） */
+    val canFork: Boolean = false,
+    val canEdit: Boolean = false,
+    val canRewindFiles: Boolean = false,
+)
+
+/** 回合文件更改汇总（官方 turnHeader.fileChanges） */
+data class FileChanges(
+    val additions: Int,
+    val deletions: Int,
+    val files: Int,
+    val state: String? = null,   // "active" | "reverted"
 )
 
 object ConvKinds {
@@ -1536,6 +1561,42 @@ class ConversationV4Session private constructor(
         }.onFailure { log("[v4] cancelBackgroundWork failed: $it") }.getOrDefault(false)
     }
 
+    // ── 消息操作（官方反馈 / 分叉 / 撤销，均为 CAS 命令，target = {rowId, entityId}） ──
+
+    /** 消息反馈（官方 setAssistantFeedback）：feedback 取 "like" / "dislike"，null 清除 */
+    suspend fun setAssistantFeedback(row: ConvRow, feedback: String?): Boolean =
+        rowCommand("setAssistantFeedback", row, mapOf("feedback" to feedback))
+
+    /** 分叉会话（官方 forkAssistant）：以该消息为起点派生新任务 */
+    suspend fun forkAssistant(row: ConvRow): Boolean =
+        rowCommand("forkAssistant", row, emptyMap())
+
+    /** 撤销该消息带来的文件更改（官方 applyFileRewind） */
+    suspend fun applyFileRewind(row: ConvRow): Boolean =
+        rowCommand("applyFileRewind", row, emptyMap())
+
+    /** 编辑用户消息并重跑（官方 editUserQuery） */
+    suspend fun editUserQuery(row: ConvRow, newText: String): Boolean =
+        rowCommand("editUserQuery", row, mapOf("newText" to newText))
+
+    /** 重跑该回合（官方 retryTurn） */
+    suspend fun retryTurn(row: ConvRow): Boolean =
+        rowCommand("retryTurn", row, emptyMap())
+
+    private suspend fun rowCommand(type: String, row: ConvRow, payload: Map<String, Any?>): Boolean =
+        withContext(Dispatchers.IO) {
+            val sessionId = _activeSessionId.value ?: return@withContext false
+            val entityId = row.entityId ?: return@withContext false
+            runCatching {
+                val res = sendCommand(sessionId, type, payload + mapOf(
+                    "target" to mapOf("rowId" to row.rowId, "entityId" to entityId),
+                )) as? Map<*, *>
+                val status = res?.get("status")?.toString()
+                log("[v4] $type row=${row.rowId} status=$status")
+                status == null || !status.startsWith("reject")
+            }.onFailure { log("[v4] $type failed: $it") }.getOrDefault(false)
+        }
+
     /**
      * 通用命令发送：CAS 命令带 baseRevision；服务端报 stale 时按
      * revisionAtDecision 重试一次（对齐官方 stale-revision 重试）。
@@ -1956,7 +2017,8 @@ class ConversationV4Session private constructor(
         val rowId = (m["rowId"] as? Number)?.toLong() ?: m["rowId"]?.toString()?.toLongOrNull() ?: return null
         if (m["visibility"] != null && m["visibility"] != "visible") return null
         val kind = (m["kind"] as? String) ?: (m["type"] as? String) ?: return null
-        if (kind == ConvKinds.TURN_HEADER) return null // 回合分隔头，不进时间线
+        // turnHeader（回合头）也要进时间线：官方在用户消息后渲染「已工作 N」行，
+        // 时长与「N 个文件已更改」都来自这一行（state / startedAt / fileChanges）。
         val output = m["output"] as? Map<*, *>
         val attachments = (m["attachments"] as? List<*>)
             ?.mapNotNull { a ->
@@ -1969,6 +2031,8 @@ class ConversationV4Session private constructor(
                 )
             }
             .orEmpty()
+        val fc = m["fileChanges"] as? Map<*, *>
+        val actions = m["actions"] as? Map<*, *>
         return ConvRow(
             rowId = rowId,
             kind = kind,
@@ -1984,6 +2048,24 @@ class ConversationV4Session private constructor(
             attachments = attachments,
             childSessionId = (m["childSessionId"] as? String)?.takeIf { it.isNotBlank() },
             subagentType = (m["subagentType"] as? String)?.takeIf { it.isNotBlank() },
+            entityId = (m["entityId"] as? String)?.takeIf { it.isNotBlank() },
+            feedback = (m["feedback"] as? String)?.takeIf { it.isNotBlank() },
+            turnId = (m["turnId"] as? String)?.takeIf { it.isNotBlank() },
+            durationMs = (m["durationMs"] as? Number)?.toLong()
+                ?: (m["activeMs"] as? Number)?.toLong(),
+            startedAt = (m["startedAt"] as? Number)?.toLong(),
+            endedAt = (m["endedAt"] as? Number)?.toLong(),
+            fileChanges = fc?.let {
+                FileChanges(
+                    additions = (it["additions"] as? Number)?.toInt() ?: 0,
+                    deletions = (it["deletions"] as? Number)?.toInt() ?: 0,
+                    files = (it["files"] as? Number)?.toInt() ?: 0,
+                    state = it["state"]?.toString(),
+                )
+            },
+            canFork = actions?.get("canFork") == true,
+            canEdit = actions?.get("canEdit") == true,
+            canRewindFiles = actions?.get("canRewindFiles") == true,
         )
     }
 
