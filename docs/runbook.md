@@ -99,6 +99,7 @@ adb logcat -s Zemote/protocol:* Zemote/v4:* Zemote/ipc:*
 | 「加载更早消息」永远失败 | `conversationRowsRangeV4` 的 `beforeRowId` 发了字符串，桌面端 Zod 校验要 number | 日志 grep `expected number, received string` | 2026-10-07 已修：游标改 Long；日志若再现即为回归 |
 | 流式期间每隔几十秒卡一下、日志反复 `resync (gap)` | 快照/resync 后迟到的旧帧（toSeq≤本地 seq）被误判为断档，触发全量快照循环 | 日志 grep `resync (gap)` 看频率 | 2026-10-07 已修：对齐官方 v4-store 语义，迟到帧直接跳过 |
 | 断网（WiFi↔4G 切换）后 App 再也收不到数据 | `onFailure` 只置 ERROR 不重连，`poke()` 无调用方，永久卡死 | 日志看 `[relay] connect failed` 后是否有 `reconnect in` | 2026-10-07 已修：已配对过的连接 onFailure 走退避自动重连，实测 2 秒内全链路自愈 |
+| 仪表盘「新建任务」发首条消息必失败，日志 `createSession rejected: proto.invalidPayload`（sessionId expected string, received undefined） | 命令信封缺 sessionId 键：无会话命令省略了必填可空字段，或编码层丢掉了 null 值 | `adb logcat -s Zemote/protocol` grep `createSession rejected` | 2026-10-08 已修：信封恒带 sessionId（无会话传 null），IPC Gson 启用 serializeNulls；若回归先查这两处 |
 | 聊天页卡顿 | 高频状态订阅重组 / 时间线 lambda 不稳定 | 复现机型 +日志 | v1.9.2 已做重组域拆分（CHANGELOG），新案例开 Issue |
 | App 启动即崩溃页 | 上次崩溃残留报告 | 读崩溃报告内容 | 页面「重启」即清除；按堆栈定位 |
 | 构建报 SDK/版本错误 | JDK 或 SDK 版本不对 | `java -version`、检查 `local.properties` | 装 JDK 17 / SDK 35 |

@@ -49,6 +49,14 @@ private data class ChangelogEntry(
 
 private val Changelogs = listOf(
     ChangelogEntry(
+        "v1.11.2", "2026-10-08",
+        listOf(
+            "修复仪表盘「新建任务」发首条消息必失败：命令信封缺 sessionId 被桌面端拒绝",
+            "信封 sessionId 改为必填可空，无会话命令传 null，与官方 schema 对齐",
+            "IPC 编码启用 serializeNulls，null 键不再被丢弃，出站报文对齐官方",
+        ),
+    ),
+    ChangelogEntry(
         "v1.11.1", "2026-10-07",
         listOf(
             "根治网络抖动下的桥降级循环：发送帧保留待确认、断线恢复后自动重发（对齐官方传输层）",

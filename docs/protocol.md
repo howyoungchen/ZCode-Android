@@ -161,8 +161,13 @@ proof = base64url_nopad( HMAC-SHA256( key = utf8(passHash),
 所有命令经 `sendConversationCommandV4(scope + {envelope})`：
 
 ```
-envelope = { commandId:uuid, clientId, sessionId?, baseRevision?, type, payload, issuedAt }
+envelope = { commandId:uuid, clientId, sessionId, baseRevision?, type, payload, issuedAt }
 ```
+
+`sessionId` **必填、可空**（官方 schema `Ji().nullable()`）：有会话命令带目标会话 id；
+无会话命令（createSession 等）传 `null`，但**不可省略键**——省略会被桌面端 Zod 以
+invalid_type 拒绝（`expected string, received undefined`）。null 值必须真实上线：
+编码层要保留 null 键（官方 JSON.stringify 语义，Gson 需 serializeNulls）。
 
 应答：`{status: accepted|duplicate|noop|stale, revisionAtDecision}`；`stale` 时以服务端 revision 重发一次；accepted/noop/duplicate 将本地基准推进到 revision+1。**必须携带 baseRevision 的命令（CAS_COMMANDS）**：applyFileRewind、forkAssistant、editUserQuery、retryTurn、setAssistantFeedback、sendQueuedNow、editQueueItem、reorderQueueItem、deleteQueueItem、setAutoDrain、switchModelConfig、switchCollaborationMode、setFollowupMode、pauseGoal、resumeGoal。
 

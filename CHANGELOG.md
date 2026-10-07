@@ -1,5 +1,18 @@
 # 更新日志
 
+## v1.11.2 — 2026-10-08
+
+修复：从仪表盘「+ 新建任务」发送第一条消息必然失败（桌面端直接拒绝 createSession）。
+（模拟器连真实桌面端实测定位：桌面端 Zod 报 `sessionId expected string, received
+undefined`；修复后新建会话、流式输出、工具调用、自动生成标题全链路通过。）
+
+- 命令信封的 `sessionId` 为必填可空字段（官方 schema `Ji().nullable()`），
+  此前无会话命令（createSession）整个省略该键，被桌面端参数校验拒绝；
+  现在信封恒携带 sessionId，无会话命令传 null
+- IPC 编码所用 Gson 默认丢弃 null 值的键，导致 `sessionId:null` 从未上线
+  （官方 Web 客户端 JSON.stringify 保留 null 键）；启用 serializeNulls，
+  出站报文与官方线格式对齐
+
 ## v1.11.1 — 2026-10-07
 
 rpc-frame 传输层补齐官方重发语义，根治网络抖动下的桥降级循环。

@@ -1552,10 +1552,12 @@ class ConversationV4Session private constructor(
         val baseRevision = if (sessionId != null) {
             maxOf(revision, ackedRevisions[sessionId] ?: 0L)
         } else 0L
-        val envelope = buildMap<String, Any> {
+        val envelope = buildMap<String, Any?> {
             put("commandId", UUID.randomUUID().toString())
             put("clientId", CLIENT_ID)
-            if (sessionId != null) put("sessionId", sessionId)
+            // 官方信封 schema：sessionId 必填、可空（createSession 等无会话命令传 null）。
+            // 旧实现 createSession 时整个省略该键，被桌面端 Zod 以 invalid_type 拒绝。
+            put("sessionId", sessionId)
             if (sessionId != null && type in CAS_COMMANDS) put("baseRevision", baseRevision)
             put("type", type)
             put("payload", payload)
@@ -1569,7 +1571,7 @@ class ConversationV4Session private constructor(
             if (serverRevision > (ackedRevisions[sessionId] ?: 0L)) {
                 ackedRevisions[sessionId] = serverRevision
             }
-            val retry = HashMap<String, Any>(envelope).apply {
+            val retry = HashMap<String, Any?>(envelope).apply {
                 put("commandId", UUID.randomUUID().toString())
                 put("baseRevision", serverRevision)
                 put("issuedAt", System.currentTimeMillis())

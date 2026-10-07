@@ -20,8 +20,11 @@ package app.zemote.protocol
  *    `String(read(len), UTF_8)` 结果相同，但后者白复制一次（tag 5 的 JSON 对象
  *    字符串可能有好几 MB）。
  */
-/** Cached Gson instance — creating a new Gson() on every encode/decode is expensive. */
-private val _gson = com.google.gson.Gson()
+/** Cached Gson instance — creating a new Gson() on every encode/decode is expensive.
+ *  serializeNulls：官方 Web 客户端用 JSON.stringify，null 值的键会保留在报文里
+ *  （如命令信封的 sessionId:null）；Gson 默认丢弃 null 键，导致桌面端 Zod 校验
+ *  报 "received undefined"。 */
+private val _gson = com.google.gson.GsonBuilder().serializeNulls().create()
 
 /** 零长度字节结果，避免 `read(0)` 每次分配新数组。 */
 private val EMPTY_BYTES = ByteArray(0)
