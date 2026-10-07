@@ -4,12 +4,10 @@
 
 **Your desktop ZCode, in your pocket.**
 
-[![Release](release-shield)][release-url]
-[![Downloads](downloads-shield)][downloads-url]
-![License](license-shield)
+[![License](license-shield)]
 ![Platform](platform-shield)
 
-**[Download APK](https://github.com/howyoungchen/ZCode-Android/releases/latest)** ·
+**[Releases](https://github.com/howyoungchen/ZCode-Android/releases)** ·
 **[Live preview](https://howyoungchen.github.io/ZCode-Android/)** ·
 **[简体中文](README_CN.md)**
 
@@ -66,9 +64,11 @@ rebuilt (see the [Changelog](CHANGELOG.md)).
 3. **Talk** — pick a workspace, open a task session, and chat away; queue
    follow-ups, upload files, approve actions as they come.
 
-Newest APK lives on the [Releases](https://github.com/howyoungchen/ZCode-Android/releases)
-page. Requirements: Android 9+ (API 28), arm64-v8a. Curious how it looks before
-installing? There's a [live preview](https://howyoungchen.github.io/ZCode-Android/).
+Each release ships an APK on the
+[Releases](https://github.com/howyoungchen/ZCode-Android/releases) page — or build
+from source below. Requirements: Android 9+ (API 28), arm64-v8a. Curious how it
+looks before installing? There's a
+[live preview](https://howyoungchen.github.io/ZCode-Android/).
 
 ## How it works
 
@@ -182,9 +182,5 @@ Written in Chinese, living under `docs/`:
 MIT. ZCode and Z.ai are trademarks of their respective owners; this project is
 not affiliated with them.
 
-[release-shield]: https://img.shields.io/github/v/release/howyoungchen/ZCode-Android?style=flat-square&color=0ea5e9
-[release-url]: https://github.com/howyoungchen/ZCode-Android/releases/latest
-[downloads-shield]: https://img.shields.io/github/downloads/howyoungchen/ZCode-Android/total?style=flat-square&color=0ea5e9
-[downloads-url]: https://github.com/howyoungchen/ZCode-Android/releases
 [license-shield]: https://img.shields.io/badge/license-MIT-111827?style=flat-square
 [platform-shield]: https://img.shields.io/badge/Android-9%2B-111827?style=flat-square&logo=android&logoColor=white

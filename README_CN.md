@@ -4,12 +4,10 @@
 
 **桌面端的 ZCode，装进口袋。**
 
-[![Release](release-shield)][release-url]
-[![Downloads](downloads-shield)][downloads-url]
-![License](license-shield)
+[![License](license-shield)]
 ![Platform](platform-shield)
 
-**[下载 APK](https://github.com/howyoungchen/ZCode-Android/releases/latest)** ·
+**[Releases](https://github.com/howyoungchen/ZCode-Android/releases)** ·
 **[在线预览](https://howyoungchen.github.io/ZCode-Android/)** ·
 **[English](README.md)**
 
@@ -58,8 +56,9 @@ fork 的理由只有一个：**让它看起来像 Z.ai 亲自发布的。** 黑�
    谁拿到它，谁就控制了你的机器。
 3. **开聊** —— 选择工作区，进入任务会话；追问排队、上传附件、审批操作，随手就来。
 
-最新 APK 在 [Releases](https://github.com/howyoungchen/ZCode-Android/releases) 页。
-要求：Android 9+（API 28），arm64-v8a。装之前想先看看界面？有一个
+每个版本都会在 [Releases](https://github.com/howyoungchen/ZCode-Android/releases) 页
+发布 APK，也可以直接用下面的源码构建。要求：Android 9+（API 28），arm64-v8a。
+装之前想先看看界面？有一个
 [在线预览](https://howyoungchen.github.io/ZCode-Android/)。
 
 ## 它是如何工作的
@@ -156,9 +155,5 @@ app/src/main/java/app/zemote/
 
 MIT。ZCode 与 Z.ai 名称归其权利人所有，本项目与其无隶属关系。
 
-[release-shield]: https://img.shields.io/github/v/release/howyoungchen/ZCode-Android?style=flat-square&color=0ea5e9
-[release-url]: https://github.com/howyoungchen/ZCode-Android/releases/latest
-[downloads-shield]: https://img.shields.io/github/downloads/howyoungchen/ZCode-Android/total?style=flat-square&color=0ea5e9
-[downloads-url]: https://github.com/howyoungchen/ZCode-Android/releases
 [license-shield]: https://img.shields.io/badge/license-MIT-111827?style=flat-square
 [platform-shield]: https://img.shields.io/badge/Android-9%2B-111827?style=flat-square&logo=android&logoColor=white
