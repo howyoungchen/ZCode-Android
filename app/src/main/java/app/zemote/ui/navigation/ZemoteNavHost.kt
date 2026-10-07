@@ -26,7 +26,6 @@ import app.zemote.ui.screens.LogScreen
 import app.zemote.ui.screens.MainScreen
 import app.zemote.ui.screens.MainShellScreen
 import app.zemote.ui.screens.PersonalizeScreen
-import app.zemote.ui.screens.TasksScreen
 import app.zemote.ui.theme.ThemeManager
 import kotlinx.coroutines.launch
 
@@ -72,9 +71,6 @@ sealed class Screen(val route: String) {
     object QrScan : Screen("qr_scan")
     object MainShell : Screen("main_shell/{accountId}") {
         fun createRoute(accountId: String) = "main_shell/${Uri.encode(accountId)}"
-    }
-    object Tasks : Screen("tasks/{workspaceKey}") {
-        fun createRoute(workspaceKey: String) = "tasks/${Uri.encode(workspaceKey)}"
     }
     object Chat : Screen("chat/{workspaceKey}/{sessionId}") {
         fun createRoute(workspaceKey: String, sessionId: String) =
@@ -159,25 +155,10 @@ fun ZemoteNavHost(
                 session = sessionViewModel,
                 store = accountStore,
                 onBack = { navController.popBackStack() },
-                onNavigateToTasks = { workspaceKey ->
-                    navController.navigate(Screen.Tasks.createRoute(workspaceKey))
-                },
                 onNavigateToChat = { workspaceKey, sessionId ->
                     navController.navigate(Screen.Chat.createRoute(workspaceKey, sessionId))
                 },
-            )
-        }
-        composable(Screen.Tasks.route) { backStackEntry ->
-            val workspaceKey = backStackEntry.arguments.arg("workspaceKey") ?: return@composable
-            TasksScreen(
-                workspaceKey = workspaceKey,
-                session = sessionViewModel,
-                onBack = { navController.popBackStack() },
-                onOpenSession = { entry ->
-                    // 每个任务用自己所属 workspace 打开（任务可能来自不同目录）
-                    val wk = entry?.workspacePath ?: workspaceKey
-                    navController.navigate(Screen.Chat.createRoute(wk, entry?.taskId ?: "new"))
-                },
+                themeManager = themeManager,
             )
         }
         composable(Screen.Chat.route) { backStackEntry ->
@@ -191,6 +172,7 @@ fun ZemoteNavHost(
                 onOpenSubagent = { wk, cid, pid ->
                     navController.navigate(Screen.Subagent.createRoute(wk, cid, pid))
                 },
+                themeManager = themeManager,
             )
         }
         composable(Screen.Subagent.route) { backStackEntry ->

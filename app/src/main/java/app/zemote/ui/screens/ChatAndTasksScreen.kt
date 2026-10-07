@@ -37,50 +37,55 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Circle
+import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Memory
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SmartToy
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.TaskAlt
-import androidx.compose.material.icons.rounded.Work
-import androidx.compose.material.icons.rounded.Cancel
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.ViewSidebar
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.CircularProgressIndicator
@@ -122,6 +127,7 @@ import app.zemote.protocol.BackgroundWork
 import app.zemote.protocol.TaskEntry
 import app.zemote.state.AppSessionViewModel
 import app.zemote.state.AppSettings
+import app.zemote.ui.theme.ThemeManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -129,163 +135,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// ────────────────────────── 任务会话列表 ──────────────────────────
-
-/** 任务会话列表：运行中置顶 + 历史记录（真实数据，来自 bootstrap 的 tasks） */
-@Composable
-fun TasksScreen(
-    workspaceKey: String,
-    session: AppSessionViewModel,
-    onBack: () -> Unit,
-    onOpenSession: (entry: app.zemote.protocol.TaskEntry?) -> Unit,
-) {
-    val accountId = session.activeId
-    var tasks by remember { mutableStateOf<List<app.zemote.protocol.TaskEntry>>(emptyList()) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(true) }
-
-    val unnamedSessionText = stringResource(R.string.unnamed_session)
-    val notConnectedText = stringResource(R.string.device_not_connected)
-    val fetchFailedText = stringResource(R.string.fetch_tasks_failed)
-
-    LaunchedEffect(accountId, workspaceKey) {
-        val client = accountId?.let { session.clientOf(it) }
-        if (client == null) {
-            error = notConnectedText
-            loading = false
-            return@LaunchedEffect
-        }
-        var bootstrapTasks: List<app.zemote.protocol.TaskEntry> = emptyList()
-        runCatching { app.zemote.protocol.fetchTasksFromBootstrap(client, workspaceKey) }
-            .onSuccess {
-                bootstrapTasks = it
-                tasks = it
-                loading = false
-            }
-            .onFailure {
-                error = it.message ?: fetchFailedText
-                loading = false
-            }
-        // 订阅工作区 sessions-index：会话列表实时更新（新增/标题/运行状态），
-        // 与 bootstrap 任务按 sessionId 合并（对齐原版 Flutter 双数据源）
-        runCatching {
-            val repo = session.conversationFor(accountId, workspaceKey) ?: return@runCatching
-            repo.openSessionsIndex()
-            repo.sessionEntries.collect { entries ->
-                if (entries.isEmpty()) return@collect
-                val byId = bootstrapTasks.associateBy { it.taskId }.toMutableMap()
-                for (e in entries) {
-                    val old = byId[e.sessionId]
-                    byId[e.sessionId] = app.zemote.protocol.TaskEntry(
-                        taskId = e.sessionId,
-                        title = e.title.ifBlank { old?.title ?: unnamedSessionText },
-                        status = if (e.running) "running" else e.phase.ifBlank { old?.status },
-                        workspacePath = old?.workspacePath,
-                        workspaceLabel = old?.workspaceLabel
-                            ?: workspaceKey.substringAfterLast('/').ifBlank { workspaceKey },
-                        updatedAt = e.lastActivityAt,
-                    )
-                }
-                tasks = byId.values.sortedByDescending { it.updatedAt ?: 0L }
-                error = null
-                loading = false
-            }
-        }
-    }
-
-    val running = tasks.filter { it.running }
-    val history = tasks.filterNot { it.running }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding(),
-    ) {
-        ScreenHeader(title = stringResource(R.string.sessions_title), onBack = onBack)
-
-        when {
-            error != null -> CenterHint(
-                icon = { Icon(Icons.Rounded.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(44.dp)) },
-                title = stringResource(R.string.fetch_sessions_failed),
-                body = error,
-            )
-            loading -> Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(14.dp))
-                Text(stringResource(R.string.fetching_sessions), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                // 新建对话按钮放在最顶部，方便点击（官方主按钮：黑底白字圆角卡）
-                item {
-                    Surface(
-                        onClick = { onOpenSession(null) },
-                        color = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Rounded.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                stringResource(R.string.start_new_chat),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                        }
-                    }
-                }
-                if (running.isNotEmpty()) {
-                    item { SectionText(stringResource(R.string.running_section)) }
-                    items(running, key = { it.taskId }) { entry ->
-                        SessionRow(
-                            title = entry.title,
-                            subtitle = entry.workspaceLabel,
-                            highlight = true,
-                            onClick = { onOpenSession(entry) },
-                        )
-                    }
-                }
-                if (history.isNotEmpty()) {
-                    item { SectionText(stringResource(R.string.history_section)) }
-                    items(history, key = { "h-" + it.taskId }) { entry ->
-                        SessionRow(
-                            title = entry.title,
-                            subtitle = entry.workspaceLabel,
-                            highlight = false,
-                            onClick = { onOpenSession(entry) },
-                        )
-                    }
-                }
-                if (tasks.isEmpty()) {
-                    item {
-                        CenterHint(
-                            icon = { Icon(Icons.Rounded.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(44.dp)) },
-                            title = stringResource(R.string.no_sessions),
-                            body = stringResource(R.string.no_sessions_hint),
-                            modifier = Modifier.padding(top = 80.dp),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 // ────────────────────────── 对话页 ──────────────────────────
 
-/** 对话页：官方 V4 协议的时间线（思考/工具/文本）+ 全新发送栏 */
+/** 对话页：对齐官方移动端远控页 —— 任务会话头 + 任务标签行 + 文档流时间线 + 官方发送栏 */
 @Composable
 fun ChatScreen(
     workspaceKey: String,
@@ -294,6 +146,7 @@ fun ChatScreen(
     onBack: () -> Unit,
     onOpenSubagent: (String, String, String) -> Unit = { _, _, _ -> },
     readOnly: Boolean = false,
+    themeManager: ThemeManager? = null,
 ) {
     val accountId = session.activeId
     var repo by remember { mutableStateOf<app.zemote.protocol.ConversationV4Session?>(null) }
@@ -305,13 +158,12 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val context = LocalContext.current
-    // 自动跟随开关：留在这一层（低频状态，发送时置位），时间线内部只读不写。
+    // 自动跟随状态：留在这一层（低频状态，发送时置位），时间线内部只读不写。
     // 这里刻意用显式 MutableState 而不是 `by remember { mutableStateOf(...) }`：
-    // 只有拿到那个 State 实例，才能 remember 出一个**实例稳定**的 setter lambda
-    // 传给 MessageTimeline（否则每次重组都是新 lambda，参数恒不相等 → 无法跳过重组）。
+    // 只有拿到那个 State 实例，传给 MessageTimeline 的读取才是稳定引用。
+    // 官方移动端没有跟随开关：贴底时自动跟随、上翻时不打扰，这里保持同样行为。
     val autoFollowState = remember { mutableStateOf(true) }
     var autoFollow by autoFollowState
-    val onToggleAutoFollow: (Boolean) -> Unit = remember { { v: Boolean -> autoFollowState.value = v } }
     // 发送失败提示（服务端拒绝 / 上传失败），短暂展示后自动消失
     var sendError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(sendError) {
@@ -409,29 +261,42 @@ fun ChatScreen(
             .statusBarsPadding()
             .imePadding(),
     ) {
-        // 顶栏三块各自独立订阅，互不牵连：
-        //   标题   → sessionEntries（sessions-index 推送）
-        //   右侧按钮 → pendingInteractions / backgroundWorks
-        // 它们原先都订阅在 ChatScreen 顶层，任何一次会话列表刷新、后台任务状态变化
-        // 都会把整页（含时间线与所有可见消息）拖进重组。
-        ScreenHeader(
-            titleContent = {
-                ChatHeaderTitle(
-                    repo = repo,
-                    activeId = activeId,
-                    newChatTitle = stringResource(R.string.new_chat),
-                    fallbackTitle = stringResource(R.string.sessions_title),
+        // 顶栏对齐官方 mobileShell：44dp 高、底色 --color-header、底部 1px 分隔线，
+        // 内容 = 返回 + 固定标题「任务会话」+ 主题菜单（palette）。
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(app.zemote.ui.theme.headerColor())
+                .height(44.dp)
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = stringResource(R.string.back_home),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(18.dp),
                 )
-            },
-            subtitle = activeId?.take(12),
-            onBack = onBack,
-            actions = {
-                ChatHeaderActions(
-                    repo = repo,
-                    enabled = repo != null && error == null,
-                    onToggle = { showTaskPanel = !showTaskPanel },
-                )
-            },
+            }
+            Text(
+                stringResource(R.string.sessions_title),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            ThemeMenuButton(themeManager)
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+
+        // 任务标签行：官方在标题栏与消息流之间展示当前任务（文件夹图标 + 任务名 + 面板开关）
+        // 标题数据来自 sessions-index 推送，抽成独立组件避免整页跟着重组。
+        TaskTabRow(
+            repo = repo,
+            activeId = activeId,
+            enabled = repo != null && error == null,
+            onTogglePanel = { showTaskPanel = !showTaskPanel },
         )
 
         val errorMessage = error
@@ -470,7 +335,6 @@ fun ChatScreen(
                 activeId = activeId,
                 listState = listState,
                 autoFollow = autoFollow,
-                onToggleAutoFollow = onToggleAutoFollow,
                 working = working,
                 historyState = historyState,
                 loadAttachment = loadAttachment,
@@ -596,73 +460,118 @@ fun ChatScreen(
     }
 }
 
-// ────────────────────────── 顶栏（独立重组域） ──────────────────────────
+// ────────────────────────── 顶栏组件（独立重组域） ──────────────────────────
 
 /**
- * 会话标题：订阅 sessions-index 的实时标题（桌面端重命名会跟着更新）。
- * 抽成独立组件，让 sessions-index 的推送只重组这一个 `Text`，
- * 而不是整个聊天页（顶栏 + 时间线 + 发送区）。
+ * 任务标签行：官方 mobileShell 在标题栏下方的一行 —— 文件夹图标 + 当前任务名 + 面板开关。
+ * 任务名订阅 sessions-index（桌面端重命名实时更新），抽成独立组件把重组限制在这一行。
  */
 @Composable
-private fun ChatHeaderTitle(
+private fun TaskTabRow(
     repo: app.zemote.protocol.ConversationV4Session?,
     activeId: String?,
-    newChatTitle: String,
-    fallbackTitle: String,
+    enabled: Boolean,
+    onTogglePanel: () -> Unit,
 ) {
     val sessionEntries by (repo?.sessionEntries?.collectAsState()
         ?: remember { mutableStateOf(emptyList<app.zemote.protocol.SessionEntry>()) })
-    val sessionTitle = sessionEntries
-        .firstOrNull { it.sessionId == activeId }
-        ?.title?.trim()?.ifBlank { null }
-    Text(
-        text = when {
-            activeId == null -> newChatTitle
-            sessionTitle != null -> sessionTitle
-            else -> fallbackTitle
-        },
-        style = MaterialTheme.typography.titleLarge,
-    )
-}
-
-/**
- * 顶栏右侧的任务面板入口。
- * 订阅 `pendingInteractions` / `backgroundWorks` —— Agent 工作时后台任务状态会频繁变化，
- * 订阅留在 ChatScreen 顶层会波及整页；放在这里只会重组这一个按钮。
- */
-@Composable
-private fun ChatHeaderActions(
-    repo: app.zemote.protocol.ConversationV4Session?,
-    enabled: Boolean,
-    onToggle: () -> Unit,
-) {
     val pendingInteractions by (repo?.pendingInteractions?.collectAsState()
         ?: remember { mutableStateOf(emptyList()) })
     val backgroundWorks by (repo?.backgroundWorks?.collectAsState()
         ?: remember { mutableStateOf(emptyList()) })
+    val sessionTitle = sessionEntries
+        .firstOrNull { it.sessionId == activeId }
+        ?.title?.trim()?.ifBlank { null }
     val hasPending = pendingInteractions.isNotEmpty()
     val hasBackground = backgroundWorks.any { it.status == "running" }
 
-    IconButton(
-        onClick = onToggle,
-        modifier = Modifier.size(36.dp),
-        enabled = enabled,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(app.zemote.ui.theme.headerColor())
+            .padding(start = 16.dp, end = 4.dp, top = 2.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        val tint = if (hasPending || hasBackground) MaterialTheme.colorScheme.secondary
-        else MaterialTheme.colorScheme.onSurfaceVariant
         Icon(
-            Icons.Rounded.TaskAlt,
-            contentDescription = stringResource(R.string.tasks_panel),
-            tint = tint,
-            modifier = Modifier.size(20.dp),
+            Icons.Rounded.Folder,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
         )
-        if (hasPending) {
-            Spacer(modifier = Modifier.width(2.dp))
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(MaterialTheme.colorScheme.error, CircleShape),
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = sessionTitle ?: stringResource(R.string.new_chat),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Box {
+            IconButton(
+                onClick = onTogglePanel,
+                modifier = Modifier.size(34.dp),
+                enabled = enabled,
+            ) {
+                Icon(
+                    Icons.Rounded.ViewSidebar,
+                    contentDescription = stringResource(R.string.tasks_panel),
+                    tint = if (hasPending || hasBackground) MaterialTheme.colorScheme.secondary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            if (hasPending) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 4.dp, end = 4.dp)
+                        .size(7.dp)
+                        .background(MaterialTheme.colorScheme.error, CircleShape),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 主题菜单：官方 mobileShell 头部右侧的 palette 图标，点开可选系统默认 / 浅色 / 深色。
+ * themeManager 为空（如子智能体只读页）时不显示。
+ */
+@Composable
+fun ThemeMenuButton(themeManager: ThemeManager?) {
+    if (themeManager == null) return
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(36.dp)) {
+            Icon(
+                Icons.Rounded.Palette,
+                contentDescription = stringResource(R.string.theme_menu),
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(18.dp),
             )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            val state by themeManager.state.collectAsState()
+            val modes = listOf(
+                ThemeManager.ThemeMode.FOLLOW_SYSTEM to R.string.theme_system,
+                ThemeManager.ThemeMode.LIGHT to R.string.theme_light,
+                ThemeManager.ThemeMode.DARK to R.string.theme_dark,
+            )
+            for ((mode, label) in modes) {
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
+                            if (state.mode == mode) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(15.dp))
+                            }
+                        }
+                    },
+                    onClick = { open = false; themeManager.setMode(mode) },
+                )
+            }
         }
     }
 }
@@ -795,11 +704,16 @@ private fun ComposerSection(
         )
     }
 
+    // 是否已有历史消息（决定占位文案）：不订阅 rows，只在重组时读一次当前值。
+    // ComposerSection 本就随 usage 等高频状态频繁重组，这里读到的值足够新鲜。
+    val hasHistory = repo?.rows?.value?.isNotEmpty() == true
+
     ComposerBar(
         text = input,
         onTextChange = onInputChange,
         working = working,
         enabled = enabled,
+        hasHistory = hasHistory,
         config = convConfig,
         usage = usage,
         modelOptions = modelOptions,
@@ -834,7 +748,6 @@ private fun MessageTimeline(
     activeId: String?,
     listState: LazyListState,
     autoFollow: Boolean,
-    onToggleAutoFollow: (Boolean) -> Unit,
     working: Boolean,
     historyState: app.zemote.protocol.HistoryState,
     loadAttachment: suspend (String) -> app.zemote.protocol.AttachmentData?,
@@ -948,8 +861,9 @@ private fun MessageTimeline(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            // 官方移动端消息流：水平 16dp、条目间距紧凑，正文的呼吸感由条目自身 padding 提供
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (showLoading) {
                 item {
@@ -1074,35 +988,35 @@ private fun MessageTimeline(
                 }
             }
 
-            items(displayItems, key = { it.key }) { item ->
+            itemsIndexed(displayItems, key = { _, item -> item.key }) { index, item ->
                 when (item) {
                     is DisplayItem.Single -> {
+                        // 思考行的「持续了 N 秒」用下一行的时间戳推算；只有思考行才扫描
+                        val nextIssuedAt = if (item.row.kind == ConvKinds.REASONING) {
+                            displayItems.drop(index + 1)
+                                .firstOrNull { it is DisplayItem.Single && it.row.issuedAt != null }
+                                ?.let { (it as DisplayItem.Single).row.issuedAt }
+                        } else null
                         if (item.row.kind == ConvKinds.USER_INPUT) {
-                            TimelineRow(item.row, loadAttachment, onOpenSubagent = openSub)
+                            TimelineRow(item.row, loadAttachment, nextIssuedAt, onOpenSubagent = openSub)
                         } else {
                             // AI 产生的内容淡入，更灵动
                             FadeInContainer(item.key) {
-                                TimelineRow(item.row, loadAttachment, onOpenSubagent = openSub)
+                                TimelineRow(item.row, loadAttachment, nextIssuedAt, onOpenSubagent = openSub)
                             }
                         }
-                    }
-                    is DisplayItem.ToolGroup -> FadeInContainer(item.key) {
-                        ToolGroupCard(item.rows, onOpenSubagent = openSub)
                     }
                 }
             }
 
             if (working) {
+                // 官方移动端：生成中只在末尾放一个小 spinner，不占文案
                 item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ThinkingDot()
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            stringResource(R.string.processing),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    CircularProgressIndicator(
+                        color = app.zemote.ui.theme.subtlestColor(),
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(16.dp).padding(top = 2.dp),
+                    )
                 }
             }
 
@@ -1110,65 +1024,70 @@ private fun MessageTimeline(
             item(key = "bottom-anchor") { Spacer(modifier = Modifier.height(0.dp)) }
         }
 
-        // 右下角浮动按钮组
-        Row(
+        // 右下角浮动按钮：官方样式的白色小胶囊（回到最新消息），用户上翻时出现
+        AnimatedVisibility(
+            visible = showScrollToBottom,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(end = 12.dp, bottom = 10.dp),
         ) {
-            // 回到最新消息：用户上翻时出现
-            AnimatedVisibility(visible = showScrollToBottom) {
-                FilledTonalIconButton(
-                    onClick = {
-                        showScrollToBottom = false
-                        scope.launch { listState.animateScrollToItem(anchorIndex) }
-                    },
-                    modifier = Modifier.size(34.dp),
-                ) {
+            Surface(
+                onClick = {
+                    showScrollToBottom = false
+                    scope.launch { listState.animateScrollToItem(anchorIndex) }
+                },
+                shape = CircleShape,
+                color = app.zemote.ui.theme.cardContainerColor(),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shadowElevation = 2.dp,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.Rounded.KeyboardArrowDown,
                         contentDescription = stringResource(R.string.scroll_to_bottom),
-                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
-            }
-            // 自动跟随开关：亮 = 跟随最新内容，暗 = 手动浏览
-            IconToggleButton(
-                checked = autoFollow,
-                onCheckedChange = onToggleAutoFollow,
-                modifier = Modifier.size(34.dp),
-            ) {
-                Icon(
-                    Icons.Rounded.ArrowDownward,
-                    contentDescription = if (autoFollow) stringResource(R.string.auto_follow_on) else stringResource(R.string.auto_follow_off),
-                    modifier = Modifier.size(18.dp),
-                )
             }
         }
     }
 }
 
 // ────────────────────────── 时间线渲染 ──────────────────────────
-// ────────────────────────── 时间线渲染 ──────────────────────────
 
+/**
+ * 单条时间线行。对齐官方文档流：
+ * 助手正文通栏、用户右对齐小气泡、思考/工具各占一行灰色摘要（无卡片边框）。
+ */
 @Composable
-private fun TimelineRow(row: ConvRow, loadAttachment: suspend (String) -> app.zemote.protocol.AttachmentData?, onOpenSubagent: (ConvRow) -> Unit = {}) {
+private fun TimelineRow(
+    row: ConvRow,
+    loadAttachment: suspend (String) -> app.zemote.protocol.AttachmentData?,
+    nextIssuedAt: Long? = null,
+    onOpenSubagent: (ConvRow) -> Unit = {},
+) {
     when (row.kind) {
-        ConvKinds.USER_INPUT -> UserBubble(row, loadAttachment)
+        ConvKinds.USER_INPUT -> Box(modifier = Modifier.padding(vertical = 4.dp)) {
+            UserBubble(row, loadAttachment)
+        }
         ConvKinds.ASSISTANT_TEXT -> if (row.text.isNotBlank()) {
+            // 官方助手正文：通栏大字（16sp）、前后留白明显大于工具行
             app.zemote.ui.components.MarkdownText(
                 markdown = row.text,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
             )
         }
-        ConvKinds.REASONING -> ThinkingBlock(row)
-        // 工具调用统一走「执行过程」汇总卡片（正常路径由 buildDisplayItems 聚合，
-        // 此处兜底处理未聚合的单条）
-        ConvKinds.TOOL_CALL -> ToolGroupCard(listOf(row), onOpenSubagent)
+        ConvKinds.REASONING -> ReasoningRow(row, nextIssuedAt)
+        ConvKinds.TOOL_CALL -> ToolSummaryRow(row, onOpenSubagent)
         ConvKinds.SUBAGENT -> if (row.summaryText.isNotBlank() || row.text.isNotBlank()) {
-            ToolGroupCard(listOf(row.copy(toolName = "subagent", inputText = row.summaryText.ifBlank { row.text })), onOpenSubagent)
+            ToolSummaryRow(
+                row.copy(toolName = "subagent", inputText = row.summaryText.ifBlank { row.text }),
+                onOpenSubagent,
+            )
         }
         // 图片类消息：占位卡片展示，绝不出现加载失败的破图
         ConvKinds.IMAGE, "screenshot" -> ImagePlaceholder(row)
@@ -1210,17 +1129,20 @@ private fun UserBubble(row: ConvRow, loadAttachment: suspend (String) -> app.zem
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
         if (row.text.isNotBlank() || row.inputText.isNotBlank() || row.attachments.isEmpty()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                // 官方用户消息：右对齐中性气泡（浅 #e5e5e5 / 深 #2b2b2b），大圆角 + 小尾角
+                // 官方用户消息：右对齐中性气泡（ml-auto），rounded-lg + --color-secondary
+                // （浅 #e6e6e6 / 深 #363636），内边距 px-4 py-3，文字 text-ui-base
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    color = app.zemote.ui.theme.userBubbleColor(),
                     contentColor = MaterialTheme.colorScheme.onSurface,
-                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp),
-                    modifier = Modifier.widthIn(max = 320.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .widthIn(max = 320.dp)
+                        .padding(vertical = 2.dp),
                 ) {
                     Text(
                         row.text.ifBlank { row.inputText },
                         style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     )
                 }
             }
@@ -1404,7 +1326,7 @@ private fun QueueBar(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    stringResource(R.string.queued_count, order.size),
+                    stringResource(R.string.queue_title, order.size),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -1637,259 +1559,282 @@ private fun guessMime(name: String): String {
     }
 }
 
-/** 思考块：流式输出中自动展开，完成后自动折叠；用户手动切换后不再自动干预（无展开动画，直切） */
+/**
+ * 思考行：对齐官方 chat.reasoning —— 单行「🧠 思考 · 持续了 N 秒」，
+ * 全部最浅灰（--color-foreground-subtlest），无边框无卡片；
+ * 流式中显示「正在思考 · <滚动预览>」。点击展开完整思考文本。
+ */
 @Composable
-private fun ThinkingBlock(row: ConvRow) {
+private fun ReasoningRow(row: ConvRow, nextIssuedAt: Long?) {
     val streaming = row.state == null || row.state !in app.zemote.protocol.COMPLETE_STATES
-    var expanded by remember(row.rowId) { mutableStateOf(true) }
+    var expanded by remember(row.rowId) { mutableStateOf(false) }
     var userToggled by remember(row.rowId) { mutableStateOf(false) }
     LaunchedEffect(streaming) {
-        if (!userToggled) expanded = streaming
+        if (!userToggled) expanded = false
     }
-    Surface(
-        color = app.zemote.ui.theme.cardContainerColor(),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    val subtlest = app.zemote.ui.theme.subtlestColor()
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
                 userToggled = true
                 expanded = !expanded
-            },
+            }
+            .padding(vertical = 3.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Rounded.Psychology,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Rounded.Psychology,
+                contentDescription = null,
+                tint = subtlest,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            if (streaming) {
+                Text(
+                    stringResource(R.string.reasoning_thinking),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+                if (row.text.isNotBlank()) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "· " + row.text.lineSequence().lastOrNull { it.isNotBlank() }.orEmpty(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = subtlest,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            } else {
+                // 持续时长：issuedAt 到下一行 issuedAt 的差值；拿不到时按官方文案说「持续了几秒」
+                val durationText = if (row.issuedAt != null && nextIssuedAt != null) {
+                    val seconds = ((nextIssuedAt - row.issuedAt) / 1000L).coerceAtLeast(0L)
+                    if (seconds > 5) stringResource(R.string.reasoning_seconds, seconds)
+                    else stringResource(R.string.reasoning_few_seconds)
+                } else {
+                    stringResource(R.string.reasoning_few_seconds)
+                }
+                Text(
+                    stringResource(R.string.reasoning_thought),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = subtlest,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
+                Text("·", style = MaterialTheme.typography.bodyMedium, color = subtlest)
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    if (streaming) stringResource(R.string.thinking_ellipsis) else stringResource(R.string.thinking_label),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (streaming) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    ThinkingDot()
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                Icon(
-                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
+                    durationText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = subtlest,
+                    maxLines = 1,
                 )
             }
-            // 展开/收起直切，无过渡动画
+            Spacer(modifier = Modifier.weight(1f))
             if (expanded) {
-                Text(
-                    row.text,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
+                Icon(
+                    Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = subtlest,
+                    modifier = Modifier.size(16.dp),
                 )
             }
+        }
+        // 展开态：完整思考内容，直切无动画
+        if (expanded && row.text.isNotBlank()) {
+            Text(
+                row.text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 24.dp, top = 4.dp),
+            )
         }
     }
 }
 
 /**
- * 「执行过程」卡片：把原始 toolcall 过滤成人话摘要——执行了什么命令、修改了哪个文件。
- * 默认只显示每步一句话；点击展开可看各步原始输出。
+ * 工具行：对齐官方 ToolLayout 单行摘要 ——
+ * [图标] [类型标签] [来源徽章] · [摘要] [+N] [运行 spinner / 失败]，
+ * 无边框无卡片，点击展开原始输出。
  */
 @Composable
-private fun ToolGroupCard(rows: List<ConvRow>, onOpenSubagent: (ConvRow) -> Unit = {}) {
-    // 用第一行的 rowId 作 key；rowId 是 Long（值类型），跨重组稳定
-    val firstRowId = rows.firstOrNull()?.rowId ?: 0L
-    var expanded by remember(firstRowId) { mutableStateOf(false) }
+private fun ToolSummaryRow(row: ConvRow, onOpenSubagent: (ConvRow) -> Unit = {}) {
+    var expanded by remember(row.rowId) { mutableStateOf(false) }
     val ctx = LocalContext.current
-    val anyRunning = rows.any {
-        it.toolStatus == null || it.toolStatus == "running" || it.toolStatus == "pending"
-    }
-    val anyFailed = rows.any { it.toolStatus == "error" }
+    val running = row.toolStatus == null || row.toolStatus == "running" || row.toolStatus == "pending"
+    val failed = row.toolStatus == "error"
+    val subtlest = app.zemote.ui.theme.subtlestColor()
 
-    Surface(
-        color = app.zemote.ui.theme.cardContainerColor(),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    // 摘要与标签的解析有 JSON 开销，key 带上内容避免每帧重解析
+    val (kindLabel, summaryText) = remember(row.rowId, row.toolName, row.inputText, row.summaryText) {
+        val name = row.toolName?.lowercase()
+        val summary = summarizeToolInput(name, row.inputText.ifBlank { row.summaryText })
+            .ifBlank { row.text }
+        toolKindLabel(ctx, name, running) to summary
+    }
+    // MCP 工具（toolName 形如 mcp__server__tool）拆出服务器名做来源徽章
+    val sourceLabel = row.toolName?.takeIf { it.startsWith("mcp__", ignoreCase = true) }
+        ?.split("__")?.getOrNull(1)?.takeIf { it.isNotBlank() }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = !expanded },
+            .clickable { expanded = !expanded }
+            .padding(vertical = 2.dp),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Rounded.Memory,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(15.dp),
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                toolKindIcon(row.toolName?.lowercase()),
+                contentDescription = null,
+                tint = subtlest,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                kindLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+            if (sourceLabel != null) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Surface(
+                    color = app.zemote.ui.theme.backgroundAltColor(),
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Text(
+                        sourceLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = subtlest,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
+            if (summaryText.isNotBlank()) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "·",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = subtlest,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    stringResource(R.string.exec_activity),
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    summaryText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = subtlest,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
-                if (rows.size > 1) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        stringResource(R.string.exec_steps, rows.size),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            } else {
                 Spacer(modifier = Modifier.weight(1f))
-                if (anyRunning) {
-                    ThinkingDot()
-                } else if (anyFailed) {
-                    Text(stringResource(R.string.some_failed), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+            }
+            // 官方 diff 绿：浅 green-600 / 深 green-500
+            if (row.additions != null && row.additions > 0) {
+                Spacer(modifier = Modifier.width(6.dp))
+                val diffGreen = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) {
+                    app.zemote.ui.theme.DiffAdded
+                } else {
+                    app.zemote.ui.theme.DiffAddedDark
                 }
-                // 子智能体入口：组内任一行为子智能体且含 childSessionId 时显示
-                val subagentRow = rows.firstOrNull { it.childSessionId != null }
-                if (subagentRow != null) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        stringResource(R.string.subagent_open),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier
-                            .clickable { onOpenSubagent(subagentRow) }
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(
-                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = if (expanded) stringResource(R.string.collapse) else stringResource(R.string.expand),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
+                Text(
+                    "+${row.additions}",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = diffGreen,
                 )
             }
-            // 每步一句：执行了什么 / 修改了什么（不做动画，直切）
-            rows.forEach { row ->
-                val stepRunning = row.toolStatus == null || row.toolStatus == "running" || row.toolStatus == "pending"
-                // toolSentence 内部要 JSONObject 解析 inputText。工具参数是流式追加的，
-                // 卡片每帧重组时若重解析，一个 8 步的组每帧就是 8 次 JSON 解析。
-                // key 里带上 rowId，位置变化也不会取到别的行的缓存。
-                val sentence = remember(row.rowId, row.toolName, row.inputText, row.summaryText) {
-                    toolSentence(ctx, row)
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        sentence,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (stepRunning) {
-                        // 静态色点：组头已有一个 ThinkingDot 承担"运行中"的动画语义，
-                        // 这里再挂 N 个 rememberInfiniteTransition 会让整卡每帧重组 N 次。
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.65f), CircleShape),
-                        )
-                    } else if (row.toolStatus == "error") {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.failed), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                    }
-                    if (row.additions != null && row.additions > 0) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        // 官方 diff 绿：浅 green-600 / 深 green-500
-                        val diffGreen = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) {
-                            app.zemote.ui.theme.DiffAdded
-                        } else {
-                            app.zemote.ui.theme.DiffAddedDark
-                        }
-                        Text(
-                            "+${row.additions}",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = diffGreen,
-                        )
-                    }
-                }
-                if (expanded && row.outputText.isNotBlank()) {
-                    Text(
-                        row.outputText,
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 8,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .padding(top = 2.dp, bottom = 2.dp)
-                            .fillMaxWidth(),
-                    )
-                }
+            if (running) {
+                Spacer(modifier = Modifier.width(6.dp))
+                CircularProgressIndicator(
+                    color = subtlest,
+                    strokeWidth = 1.5.dp,
+                    modifier = Modifier.size(12.dp),
+                )
+            } else if (failed) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    stringResource(R.string.tool_failed),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
+            // 子智能体入口
+            if (row.childSessionId != null) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    stringResource(R.string.subagent_open),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier
+                        .clickable { onOpenSubagent(row) }
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                )
+            }
+        }
+        // 展开态：原始输出（等宽小字），直切无动画
+        if (expanded && row.outputText.isNotBlank()) {
+            Text(
+                row.outputText,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 10,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(start = 24.dp, top = 4.dp)
+                    .fillMaxWidth(),
+            )
         }
     }
 }
 
-/** 把一步工具调用翻译成一句人话：执行了命令 xxx / 修改了 MainActivity.kt / 读取了 … */
-private fun toolSentence(ctx: android.content.Context, row: ConvRow): String {
-    val name = row.toolName?.lowercase()
-    val inputSrc = row.inputText.ifBlank { row.summaryText }
-    val target = summarizeToolInput(name, inputSrc).ifBlank { row.text }
-    return when (name) {
-        "terminal", "bash", "run_command" ->
-            if (target.isBlank()) ctx.getString(R.string.tool_run) else ctx.getString(R.string.tool_run_arg, target)
-        "edit" ->
-            if (target.isBlank()) ctx.getString(R.string.tool_edit) else ctx.getString(R.string.tool_edit_arg, target)
-        "write" ->
-            if (target.isBlank()) ctx.getString(R.string.tool_write) else ctx.getString(R.string.tool_write_arg, target)
-        "multiedit", "notebookedit" ->
-            if (target.isBlank()) ctx.getString(R.string.tool_multi_edit) else ctx.getString(R.string.tool_multi_edit_arg, target)
-        "read" ->
-            if (target.isBlank()) ctx.getString(R.string.tool_read) else ctx.getString(R.string.tool_read_arg, target)
-        "search", "grep", "glob", "websearch", "web_fetch" ->
-            if (target.isBlank()) ctx.getString(R.string.tool_search) else ctx.getString(R.string.tool_search_arg, target)
-        "task", "subagent" ->
-            if (target.isBlank()) ctx.getString(R.string.tool_subtask) else ctx.getString(R.string.tool_subtask_arg, target)
-        null -> ctx.getString(R.string.tool_generic)
-        else ->
-            if (target.isBlank()) ctx.getString(R.string.tool_named, row.toolName ?: "")
-            else ctx.getString(R.string.tool_named_arg, row.toolName ?: "", target)
-    }
+/** 官方工具类型 → 图标 */
+private fun toolKindIcon(tool: String?): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
+    "terminal", "bash", "run_command", "execute" -> Icons.Rounded.Terminal
+    "read", "grep", "glob", "search", "websearch", "web_fetch" -> Icons.Rounded.Search
+    "edit", "multiedit", "notebookedit", "write" -> Icons.Rounded.Edit
+    "delete", "rm", "remove" -> Icons.Rounded.Delete
+    "task", "subagent" -> Icons.Rounded.SmartToy
+    "skill", "skills" -> Icons.Rounded.AutoAwesome
+    "todo", "todowrite", "todos" -> Icons.Rounded.Checklist
+    else -> if (tool?.startsWith("mcp__") == true) Icons.Rounded.Extension else Icons.AutoMirrored.Rounded.InsertDriveFile
 }
 
-/** 时间线显示项：普通行单条展示，连续的工具行聚合为一组 */
+/** 官方工具类型 → 标签（运行中换成「正在执行/正在读取…」等运行态文案） */
+private fun toolKindLabel(ctx: android.content.Context, tool: String?, running: Boolean): String = when (tool) {
+    "terminal", "bash", "run_command", "execute" ->
+        if (running) ctx.getString(R.string.tool_running) else ctx.getString(R.string.tool_kind_terminal)
+    "read" ->
+        if (running) ctx.getString(R.string.tool_reading) else ctx.getString(R.string.tool_kind_read)
+    "grep", "glob", "search", "websearch", "web_fetch" ->
+        if (running) ctx.getString(R.string.tool_searching) else ctx.getString(R.string.tool_kind_search)
+    "write" ->
+        if (running) ctx.getString(R.string.tool_writing) else ctx.getString(R.string.tool_kind_write)
+    "edit", "multiedit", "notebookedit" ->
+        if (running) ctx.getString(R.string.tool_editing) else ctx.getString(R.string.tool_kind_edit)
+    "delete", "rm", "remove" ->
+        if (running) ctx.getString(R.string.tool_deleting) else ctx.getString(R.string.tool_kind_delete)
+    "task", "subagent" -> ctx.getString(R.string.tool_kind_subagent)
+    "skill", "skills" -> ctx.getString(R.string.tool_kind_skill)
+    "todo", "todowrite", "todos" -> ctx.getString(R.string.tool_kind_todo)
+    else -> if (tool?.startsWith("mcp__") == true) ctx.getString(R.string.tool_kind_mcp)
+    else ctx.getString(R.string.tool_kind_generic)
+}
+
+/** 时间线显示项：普通行单条展示 */
 private sealed interface DisplayItem {
     val key: String
 
     data class Single(val row: ConvRow) : DisplayItem {
         override val key get() = "r-${row.rowId}"
     }
-
-    data class ToolGroup(val rows: List<ConvRow>) : DisplayItem {
-        /**
-         * key 只取**首行** rowId。
-         *
-         * 旧实现把末行 rowId 也编进 key（`g-1-5`）：流式期间组内每新增一个工具调用，
-         * key 就变成 `g-1-6`，LazyColumn 会认为这是一个全新条目 —— 旧条目被销毁重建，
-         * FadeInContainer 重新从透明淡入、ToolGroupCard 的 `expanded` 展开状态被重置。
-         * 表现就是 AI 工作时「执行过程」卡片反复闪烁、用户展开后自己又合上。
-         * 首行 rowId 在组增长时保持不变，key 因此稳定，条目与状态都能被正确复用。
-         */
-        override val key get() = "g-${rows.first().rowId}"
-    }
 }
 
 /**
- * 把行列表折叠成展示项（连续的工具调用合并成一张卡片）。
+ * 把行列表映射成展示项（每行独立展示，对齐官方文档流）。
  *
  * `prev` 是上一次的结果：流式输出期间每 60ms 就会重跑一次，而真正变化的通常只有最后一行。
  * 这里对每个槽位做「实例比对」，命中就复用旧对象，避免每次都重建整张列表 —— 否则
@@ -1900,31 +1845,13 @@ private sealed interface DisplayItem {
  */
 private fun buildDisplayItems(rows: List<ConvRow>, prev: List<DisplayItem>): List<DisplayItem> {
     val out = ArrayList<DisplayItem>(if (prev.isEmpty()) 16 else prev.size)
-    val group = ArrayList<ConvRow>()
-    fun flush() {
-        if (group.isEmpty()) return
-        val idx = out.size
-        val cached = prev.getOrNull(idx) as? DisplayItem.ToolGroup
-        val reusable = cached != null &&
-            cached.rows.size == group.size &&
-            cached.rows.indices.all { i -> cached.rows[i] === group[i] }
-        out.add(if (reusable) cached!! else DisplayItem.ToolGroup(ArrayList(group)))
-        group.clear()
-    }
     for (row in rows) {
-        val isTool = row.kind == ConvKinds.TOOL_CALL || row.kind == ConvKinds.SUBAGENT
-        if (isTool) {
-            group.add(row)
-        } else {
-            flush()
-            val cached = prev.getOrNull(out.size)
-            out.add(
-                if (cached is DisplayItem.Single && cached.row === row) cached
-                else DisplayItem.Single(row)
-            )
-        }
+        val cached = prev.getOrNull(out.size)
+        out.add(
+            if (cached is DisplayItem.Single && cached.row === row) cached
+            else DisplayItem.Single(row)
+        )
     }
-    flush()
     return out
 }
 
@@ -2224,12 +2151,14 @@ private fun summarizeToolInput(tool: String?, raw: String): String {
 private fun fileNameOf(path: String): String =
     path.substringAfterLast('\\').substringAfterLast('/').trim()
 
-// ────────────────────────── 发送栏（官方功能布局） ──────────────────────────
+// ────────────────────────── 发送栏（官方 composer 布局） ──────────────────────────
 
 /**
- * 发送栏：对齐官方远控页 —— 单张圆角输入卡（卡底 + 1px 边框），
- * 上输入框，下控制条：附件 · 思考等级 | 模型 · 上下文 | 停止/排队/发送。
- * 发送键为官方样式：圆形实心（浅色黑 / 深色白）+ 向上箭头。
+ * 发送栏：对齐官方 composer —— 大圆角输入卡（卡底 + 1px 边框），
+ * 上输入框（占位文案随状态切换），下控制条：
+ * 左：附件「+」；右：上下文% · 模型胶囊 · 推理强度胶囊 · 黑色圆角方块（停止/发送）。
+ * 官方发送键为 rounded-lg + --color-brand（浅色黑 / 深色白）实心方块；
+ * AI 工作中输入文字时发送键执行官方 enqueue 语义（加入队列），停止键降为描边方块。
  */
 @Composable
 private fun ComposerBar(
@@ -2237,6 +2166,7 @@ private fun ComposerBar(
     onTextChange: (String) -> Unit,
     working: Boolean,
     enabled: Boolean,
+    hasHistory: Boolean,
     config: app.zemote.protocol.ConvConfig?,
     usage: app.zemote.protocol.ConvUsage?,
     modelOptions: List<app.zemote.protocol.ModelOption>,
@@ -2256,7 +2186,7 @@ private fun ComposerBar(
     ) {
         Surface(
             color = app.zemote.ui.theme.cardContainerColor(),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(20.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -2265,14 +2195,17 @@ private fun ComposerBar(
                     .fillMaxWidth()
                     .padding(horizontal = 10.dp, vertical = 6.dp),
             ) {
-                // ── 输入框（卡内无边框，占满宽度） ──
+                // ── 输入框（卡内无边框，占满宽度）；占位文案对齐官方 chat.placeholder ──
                 OutlinedTextField(
                     value = text,
                     onValueChange = onTextChange,
                     placeholder = {
                         Text(
-                            if (working) stringResource(R.string.composer_hint_queued)
-                            else stringResource(R.string.composer_hint),
+                            when {
+                                working && hasHistory -> stringResource(R.string.followup_queue)
+                                hasHistory -> stringResource(R.string.followup_ask)
+                                else -> stringResource(R.string.placeholder_new)
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -2290,42 +2223,46 @@ private fun ComposerBar(
                     ),
                     // 回车换行，发送走右侧按钮（多行输入）
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                // ── 控制条（官方：卡内一排幽灵图标按钮） ──
+                // ── 控制条：官方一行式工具条 ──
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    // ── 左侧：附件 + 思考等级 ──
+                    // ── 左：附件「+」 ──
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AttachmentButton(onClick = onAttach)
-                        ThoughtLevelButton(
-                            config = config,
-                            onSelect = onThoughtSelect,
-                        )
                     }
 
-                    // ── 右侧：模型 · 上下文 · 停止/排队/发送 ──
+                    // ── 右：上下文 · 模型 · 推理强度 · 停止/发送 ──
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        UsageButton(usage = usage)
                         ModelButton(
                             config = config,
                             modelOptions = modelOptions,
                             onSelect = onModelSelect,
                         )
-                        UsageButton(usage = usage)
-                        if (working) {
-                            StopButton(onClick = onStop, workId = stopWorkId)
-                            if (text.isNotBlank()) {
-                                QueueButton(onClick = { onSend(true) })
-                            }
+                        ThoughtLevelButton(
+                            config = config,
+                            onSelect = onThoughtSelect,
+                        )
+                        if (working && text.isBlank()) {
+                            // 生成中且无草稿：唯一的黑色方块是停止
+                            StopButton(onClick = onStop)
                         } else {
+                            // 有草稿（或空闲）：黑色方块是发送；生成中发送即官方 enqueue 语义
+                            if (working) {
+                                StopButton(onClick = onStop, secondary = true)
+                            }
                             SendButton(
+                                label = if (working) stringResource(R.string.enqueue)
+                                else stringResource(R.string.send),
                                 enabled = enabled && text.isNotBlank(),
-                                onClick = { onSend(false) },
+                                onClick = { onSend(working) },
                             )
                         }
                     }
@@ -2335,22 +2272,25 @@ private fun ComposerBar(
     }
 }
 
-// ────────────────────────── 按钮组件 ──────────────────────────
+// ────────────────────────── 按钮组件（官方 composer 工具条） ──────────────────────────
 
 /** 附件按钮：加号幽灵图标，唤起系统文件选择器（图片/任意文件） */
 @Composable
 private fun AttachmentButton(onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(38.dp)) {
+    IconButton(onClick = onClick, modifier = Modifier.size(32.dp)) {
         Icon(
             Icons.Rounded.Add,
             contentDescription = stringResource(R.string.attach),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(18.dp),
         )
     }
 }
 
-/** 思考等级按钮：弹出菜单显示所有可选等级 */
+/**
+ * 思考等级胶囊：官方「🧠 最高 ⌄」样式 —— 图标 + 当前等级文字 + 下拉箭头。
+ * 当前模型不支持思考（等级列表为空）时不显示。
+ */
 @Composable
 private fun ThoughtLevelButton(
     config: app.zemote.protocol.ConvConfig?,
@@ -2360,16 +2300,33 @@ private fun ThoughtLevelButton(
     val ctx = LocalContext.current
     val current = config?.thought
     val levels = config?.thoughtLevels ?: emptyList()
-
-    if (levels.isEmpty()) return // 当前模型不支持思考，不显示按钮
+    if (levels.isEmpty()) return
 
     Box {
-        IconButton(onClick = { open = true }, modifier = Modifier.size(38.dp)) {
+        Row(
+            modifier = Modifier
+                .clickable { open = true }
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Icon(
                 Icons.Rounded.Psychology,
                 contentDescription = stringResource(R.string.thought_level),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                thoughtLabel(ctx, current ?: ""),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
+            Icon(
+                Icons.Rounded.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(14.dp),
             )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -2391,7 +2348,9 @@ private fun ThoughtLevelButton(
     }
 }
 
-/** 模型按钮：弹出菜单显示所有可用模型 */
+/**
+ * 模型胶囊：官方「GLM-5.3 ⌄」样式 —— 当前模型名 + 下拉箭头。
+ */
 @Composable
 private fun ModelButton(
     config: app.zemote.protocol.ConvConfig?,
@@ -2403,12 +2362,25 @@ private fun ModelButton(
     val currentModel = config?.model
 
     Box {
-        IconButton(onClick = { open = true }, modifier = Modifier.size(38.dp)) {
+        Row(
+            modifier = Modifier
+                .clickable { open = true }
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                shortModelName(currentModel),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 110.dp),
+            )
             Icon(
-                Icons.Rounded.Memory,
+                Icons.Rounded.ExpandMore,
                 contentDescription = stringResource(R.string.model_label),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(14.dp),
             )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -2438,7 +2410,7 @@ private fun ModelButton(
     }
 }
 
-/** 上下文用量按钮：显示百分比进度条，点击弹出明细 */
+/** 上下文用量：官方以百分比小字呈现，颜色随用量分档，点击弹出明细 */
 @Composable
 private fun UsageButton(usage: app.zemote.protocol.ConvUsage?) {
     var open by remember { mutableStateOf(false) }
@@ -2453,15 +2425,14 @@ private fun UsageButton(usage: app.zemote.protocol.ConvUsage?) {
     }
 
     Box {
-        IconButton(onClick = { open = true }, modifier = Modifier.size(38.dp)) {
-            // M3 饼图图标，颜色随用量分档
-            Icon(
-                Icons.Rounded.PieChart,
-                contentDescription = stringResource(R.string.context_usage),
-                tint = color,
-                modifier = Modifier.size(19.dp),
-            )
-        }
+        Text(
+            "${(ratio * 100).toInt()}%",
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
+            modifier = Modifier
+                .clickable { open = true }
+                .padding(horizontal = 6.dp, vertical = 6.dp),
+        )
         val ctx2 = LocalContext.current
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
@@ -2491,66 +2462,70 @@ private fun UsageButton(usage: app.zemote.protocol.ConvUsage?) {
     }
 }
 
-/** 停止按钮：官方样式 —— 圆形描边 + 方块停止图标，AI 工作中显示 */
+/**
+ * 停止按钮：官方生成中按钮。默认黑色圆角方块（rounded-lg + brand）；
+ * [secondary] 为 true 时降级为描边方块（草稿存在、右侧让位给发送键时）。
+ */
 @Composable
-private fun StopButton(onClick: () -> Unit, workId: String? = null) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = Color.Transparent,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.size(38.dp),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                Icons.Rounded.Stop,
-                contentDescription = stringResource(R.string.stop),
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(18.dp),
-            )
+private fun StopButton(onClick: () -> Unit, secondary: Boolean = false) {
+    if (secondary) {
+        Surface(
+            onClick = onClick,
+            shape = RoundedCornerShape(8.dp),
+            color = Color.Transparent,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.size(32.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Rounded.Stop,
+                    contentDescription = stringResource(R.string.stop_gen),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(15.dp),
+                )
+            }
+        }
+    } else {
+        Surface(
+            onClick = onClick,
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.size(34.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Rounded.Stop,
+                    contentDescription = stringResource(R.string.stop_gen),
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(15.dp),
+                )
+            }
         }
     }
 }
 
-/** 排队发送按钮：圆形描边幽灵键，AI 工作中时把当前输入加入队列 */
+/**
+ * 发送按钮：官方 rounded-lg + --color-brand 黑色圆角方块 + 向上箭头。
+ * 生成中时执行官方 enqueue 语义（加入队列）。
+ */
 @Composable
-private fun QueueButton(onClick: () -> Unit) {
+private fun SendButton(label: String, enabled: Boolean, onClick: () -> Unit) {
     Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = Color.Transparent,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.size(38.dp),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                Icons.AutoMirrored.Rounded.PlaylistAdd,
-                contentDescription = stringResource(R.string.usage_queue),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(19.dp),
-            )
-        }
-    }
-}
-
-/** 发送按钮：官方样式 —— 圆形实心（浅色黑 / 深色白）+ 向上箭头 */
-@Composable
-private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
-    FilledIconButton(
         onClick = onClick,
         enabled = enabled,
-        shape = CircleShape,
-        colors = IconButtonDefaults.filledIconButtonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-        ),
-        modifier = Modifier.size(38.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = if (enabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.size(34.dp),
     ) {
-        Icon(
-            Icons.Rounded.ArrowUpward,
-            contentDescription = stringResource(R.string.send),
-            modifier = Modifier.size(19.dp),
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.Rounded.ArrowUpward,
+                contentDescription = label,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 
@@ -2586,6 +2561,13 @@ private fun formatToken(n: Long): String = when {
     else -> n.toString()
 }
 
+/** 模型短名：官方胶囊里显示的当前模型名（如 GLM-4.6），去掉路径前缀并规范化首字母 */
+private fun shortModelName(model: String?): String {
+    if (model.isNullOrBlank()) return ""
+    val name = model.substringAfterLast('/')
+    return name.replaceFirstChar { it.uppercase() }
+}
+
 /** 模型显示名称（带 provider 前缀，便于区分不同提供商的同名模型） */
 private fun modelLabel(provider: String, model: String): String {
     val p = when (provider.lowercase()) {
@@ -2599,115 +2581,6 @@ private fun modelLabel(provider: String, model: String): String {
         else -> provider
     }
     return "$p · $model"
-}
-
-// ────────────────────────── 通用小组件 ──────────────────────────
-
-/**
- * 通用顶栏。
- *
- * [titleContent] 用于需要**独立订阅**标题数据的场景（例如会话标题来自 sessions-index
- * 的实时推送）：传一个自己订阅状态的 composable，标题更新时只会重组它自己，
- * 而不会把整个页面拖进重组。传了 [titleContent] 就忽略 [title]。
- */
-@Composable
-fun ScreenHeader(
-    title: String = "",
-    subtitle: String? = null,
-    onBack: () -> Unit,
-    actions: @Composable () -> Unit = {},
-    titleContent: (@Composable () -> Unit)? = null,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            if (titleContent != null) titleContent() else Text(title, style = MaterialTheme.typography.titleLarge)
-            if (subtitle != null) {
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        actions()
-    }
-}
-
-@Composable
-private fun SectionText(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 4.dp, top = 6.dp),
-    )
-}
-
-@Composable
-private fun SessionRow(title: String, subtitle: String?, highlight: Boolean, onClick: () -> Unit) {
-    // 官方列表行：圆角卡 + 边框；运行中（highlight）用 selected 底（10% 前景叠加）
-    Surface(
-        onClick = onClick,
-        color = if (highlight) app.zemote.ui.theme.selectedContainerColor()
-        else app.zemote.ui.theme.cardContainerColor(),
-        shape = RoundedCornerShape(12.dp),
-        border = if (highlight) null
-        else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (subtitle != null) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        subtitle,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            if (highlight) {
-                ThinkingDot()
-            }
-        }
-    }
-}
-
-/** 处理中的呼吸圆点 */
-@Composable
-fun ThinkingDot() {
-    val transition = rememberInfiniteTransition(label = "dot")
-    val alpha by transition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
-        label = "dotAlpha",
-    )
-    Box(
-        modifier = Modifier
-            .size(10.dp)
-            .background(
-                MaterialTheme.colorScheme.primary.copy(alpha = alpha),
-                CircleShape,
-            )
-    )
 }
 
 @Composable

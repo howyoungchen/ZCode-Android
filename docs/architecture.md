@@ -109,10 +109,16 @@ graph TD
 
 ### 4.3 `ui/` — Compose 界面
 
-- `navigation/ZemoteNavHost.kt`：全部路由。参数化路由：`main_shell/{accountId}`、`tasks/{workspaceKey}`、`chat/{workspaceKey}/{sessionId}`、`subagent/{workspaceKey}/{childSessionId}/{parentSessionId}`；静态路由：`main`、`qr_scan`、`personalize`、`ai_settings`、`feedback`、`changelog`、`log`、`cache_clean`。
-- `screens/`：12 个页面。主链路 Main（设备/设置双 Tab）→ QrScan → MainShell（工作区/任务）→ Tasks → Chat；辅助页含崩溃报告（CrashScreen）、调试日志（LogScreen）、缓存清理（CacheCleanScreen）等。
+- `navigation/ZemoteNavHost.kt`：全部路由。参数化路由：`main_shell/{accountId}`、`chat/{workspaceKey}/{sessionId}`、`subagent/{workspaceKey}/{childSessionId}/{parentSessionId}`；静态路由：`main`、`qr_scan`、`personalize`、`ai_settings`、`feedback`、`changelog`、`log`、`cache_clean`。
+- `screens/`：主链路 Main（设备/设置双 Tab）→ QrScan → MainShell（官方远控仪表盘）→ Chat；辅助页含崩溃报告（CrashScreen）、调试日志（LogScreen）、缓存清理（CacheCleanScreen）等。
 - `theme/`：M3 主题；`ThemeManager` 经 DataStore 持久化模式 / 色盘。色板对齐官方 ZCode 远控页（zai 黑白单色 + sky 点缀，令牌提取自官方 CSS），动态取色已移除。
-- `components/Markdown.kt`：消息 Markdown 渲染。
+- 界面按官方移动端远控页（`webRemoteControl.mobileHome` / `mobileShell`，结构提取自官方 v4 构建产物）逐块对齐：
+  MainShell 为仪表盘（大标题头 + 提示卡 + 可展开的工作区卡片，卡片内嵌任务列表与状态胶囊，
+  「+」直达新建会话，任务行直达会话，原独立 Tasks 会话列表页已删除）；
+  Chat 为文档流时间线（助手正文 16sp 通栏、用户右对齐 `secondary` 气泡、
+  思考行「思考 · 持续了 N 秒」、工具行单行摘要可展开）+ 官方 composer
+  （占位文案 / 模型胶囊 / 推理强度胶囊 / 黑色圆角方块停止与发送键）。
+- `components/Markdown.kt`：消息 Markdown 渲染（正文 16sp，对齐官方 text-ui-lg）。
 
 ### 4.4 支撑组件
 

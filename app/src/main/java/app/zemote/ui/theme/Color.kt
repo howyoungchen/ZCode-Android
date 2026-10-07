@@ -11,7 +11,8 @@ import androidx.compose.ui.graphics.Color
 val NeutralBackgroundLight = Color(0xFFFAFAFA)
 val NeutralOnBackgroundLight = Color(0xFF404040)
 val NeutralVariantLight = Color(0xFFF5F5F5)
-val NeutralOnVariantLight = Color(0xFF525252)
+// 官方 --color-foreground-subtle：neutral-700 / neutral-200 的 60% 透明
+val NeutralOnVariantLight = Color(0x99404040)
 val OutlineLight = Color(0xFFD4D4D4)
 val OutlineVariantLight = Color(0xFFE5E5E5)
 val SurfaceDimLight = Color(0xFFDCDCDC)
@@ -28,7 +29,8 @@ val InverseOnSurfaceLight = Color(0xFFF5F5F5)
 val NeutralBackgroundDark = Color(0xFF161616)
 val NeutralOnBackgroundDark = Color(0xFFE5E5E5)
 val NeutralVariantDark = Color(0xFF1F1F1F)
-val NeutralOnVariantDark = Color(0xFFA3A3A3)
+// 官方 --color-foreground-subtle：neutral-200 的 60% 透明
+val NeutralOnVariantDark = Color(0x99E5E5E5)
 val OutlineDark = Color(0xFF4D4D4D)
 val OutlineVariantDark = Color(0xFF2E2E2E)
 val SurfaceDimDark = Color(0xFF111111)
@@ -54,10 +56,36 @@ val OnErrorContainerDark = Color(0xFFFEE2E2)
 
 val Scrim = Color(0xFF000000)
 
-// 语义色（连接状态等业务用途；官方 success：浅 green-600 / 深 green-500）
-val StatusSuccess = Color(0xFF16A34A)
-val StatusSuccessDark = Color(0xFF22C55E)
+// 语义色（连接状态等业务用途；官方 success：浅 #1e8a3e / 深 #46bf72，取自 zai 主题）
+val StatusSuccess = Color(0xFF1E8A3E)
+val StatusSuccessDark = Color(0xFF46BF72)
 
 // 官方 diff 绿（工具卡 +N 行数）
 val DiffAdded = Color(0xFF16A34A)
 val DiffAddedDark = Color(0xFF22C55E)
+
+// ─── 移动端远控页专属令牌（提取自官方 webRemoteControl 组件，zai-light / zai-dark 两套） ───
+
+// 顶栏底色：官方 --color-header（浅 #fff / 深 #202020）
+val HeaderBgLight = Color(0xFFFFFFFF)
+val HeaderBgDark = Color(0xFF202020)
+
+// 用户消息气泡：官方 --color-secondary（浅 #e6e6e6 / 深 #363636）
+val UserBubbleLight = Color(0xFFE6E6E6)
+val UserBubbleDark = Color(0xFF363636)
+
+// 最浅前景：官方 --color-foreground-subtlest（neutral-700/200 40% 透明）
+val OnSurfaceSubtlestLight = Color(0x66404040)
+val OnSurfaceSubtlestDark = Color(0x4DE5E5E5)
+
+// 卡片内图标方块底：官方 --color-surface（黑 3% / 白 5% 叠加）
+val SurfaceTintLight = Color(0xFFF6F6F6)
+val SurfaceTintDark = Color(0xFF232323)
+
+// 运行中状态胶囊底：官方 --color-accent（浅 #ebf4ff / 深 #001d3d）
+val AccentLight = Color(0xFFEBF4FF)
+val AccentDark = Color(0xFF001D3D)
+
+// 工具行来源徽章底：官方 --color-background-alt（neutral-100/800 60%）
+val BackgroundAltLight = Color(0x99F5F5F5)
+val BackgroundAltDark = Color(0x99262626)

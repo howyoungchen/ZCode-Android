@@ -158,3 +158,35 @@ fun selectedContainerColor(): Color {
     val scheme = MaterialTheme.colorScheme
     return if (scheme.background.luminance() > 0.5f) Color(0xFFE5E5E5) else Color(0xFF2E2E2E)
 }
+
+/** 以下辅助色对齐官方移动端远控页令牌（zai-light / zai-dark 两套），见 Color.kt 注释 */
+
+/** 顶栏底色：官方 --color-header */
+@Composable
+fun headerColor(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() > 0.5f) HeaderBgLight else HeaderBgDark
+
+/** 用户消息气泡底：官方 --color-secondary */
+@Composable
+fun userBubbleColor(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() > 0.5f) UserBubbleLight else UserBubbleDark
+
+/** 最浅前景：官方 --color-foreground-subtlest，用于工具行图标与摘要 */
+@Composable
+fun subtlestColor(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() > 0.5f) OnSurfaceSubtlestLight else OnSurfaceSubtlestDark
+
+/** 卡片内图标方块底：官方 --color-surface（前景色低比例叠加） */
+@Composable
+fun surfaceTintColor(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() > 0.5f) SurfaceTintLight else SurfaceTintDark
+
+/** 运行中状态胶囊底：官方 --color-accent */
+@Composable
+fun accentColor(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() > 0.5f) AccentLight else AccentDark
+
+/** 工具行来源徽章底：官方 --color-background-alt */
+@Composable
+fun backgroundAltColor(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() > 0.5f) BackgroundAltLight else BackgroundAltDark

@@ -25,6 +25,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
+ * 助手正文样式：官方移动端消息流用 text-ui-lg（基准 14px + 2），行高宽松。
+ * 16sp / 25sp ≈ 官方 16px × 1.6。
+ */
+private val AssistantTextStyle = androidx.compose.ui.text.TextStyle(
+    fontSize = 16.sp,
+    lineHeight = 25.sp,
+)
+
+/**
  * 轻量 Markdown 渲染：标题 / 列表 / 引用 / 分隔线 / 代码块 / 行内代码 / 粗斜体 /
  * 删除线 / 链接。纯 Compose 实现，专为 AI 回复流式增长设计（逐行解析，无全局状态）。
  *
@@ -84,14 +93,15 @@ fun MarkdownText(
                 ) {
                     Text(
                         inlines[index]!!,
-                        style = MaterialTheme.typography.bodyMedium,
+                        // 官方助手正文为 text-ui-lg（16px）配宽松行高
+                        style = AssistantTextStyle,
                         color = baseColor.copy(alpha = 0.85f),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
                 is MdBlock.ListItem -> Text(
                     inlines[index]!!,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AssistantTextStyle,
                     color = baseColor,
                     modifier = Modifier.padding(start = 8.dp, top = 1.dp, bottom = 1.dp),
                 )
@@ -104,7 +114,7 @@ fun MarkdownText(
                 )
                 is MdBlock.Paragraph -> Text(
                     inlines[index]!!,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AssistantTextStyle,
                     color = baseColor,
                     modifier = Modifier.padding(vertical = 2.dp),
                 )
