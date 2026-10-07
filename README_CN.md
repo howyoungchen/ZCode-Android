@@ -4,14 +4,11 @@
 
 **桌面端的 ZCode，装进口袋。**
 
-[![License](license-shield)]
-![Platform](platform-shield)
-
 **[Releases](https://github.com/howyoungchen/ZCode-Android/releases)** ·
 **[在线预览](https://howyoungchen.github.io/ZCode-Android/)** ·
 **[English](README.md)**
 
-Kotlin · Jetpack Compose · Material 3
+Kotlin · Jetpack Compose · Material 3 · MIT
 
 </div>
 
@@ -154,6 +151,3 @@ app/src/main/java/app/zemote/
 ## 许可证
 
 MIT。ZCode 与 Z.ai 名称归其权利人所有，本项目与其无隶属关系。
-
-[license-shield]: https://img.shields.io/badge/license-MIT-111827?style=flat-square
-[platform-shield]: https://img.shields.io/badge/Android-9%2B-111827?style=flat-square&logo=android&logoColor=white

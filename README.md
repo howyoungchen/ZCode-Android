@@ -4,14 +4,11 @@
 
 **Your desktop ZCode, in your pocket.**
 
-[![License](license-shield)]
-![Platform](platform-shield)
-
 **[Releases](https://github.com/howyoungchen/ZCode-Android/releases)** ·
 **[Live preview](https://howyoungchen.github.io/ZCode-Android/)** ·
 **[简体中文](README_CN.md)**
 
-Kotlin · Jetpack Compose · Material 3
+Kotlin · Jetpack Compose · Material 3 · MIT
 
 </div>
 
@@ -181,6 +178,3 @@ Written in Chinese, living under `docs/`:
 
 MIT. ZCode and Z.ai are trademarks of their respective owners; this project is
 not affiliated with them.
-
-[license-shield]: https://img.shields.io/badge/license-MIT-111827?style=flat-square
-[platform-shield]: https://img.shields.io/badge/Android-9%2B-111827?style=flat-square&logo=android&logoColor=white
