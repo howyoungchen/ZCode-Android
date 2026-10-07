@@ -1,6 +1,9 @@
 <div align="center">
 
-# Zemote
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
+  <img src="docs/assets/banner-light.svg" alt="Zemote" height="96">
+</picture>
 
 **Your desktop ZCode, in your pocket.**
 
@@ -21,11 +24,49 @@ as the official web remote, reimplemented natively in Kotlin: your sessions,
 tool calls and approvals, all a thumb-reach away. It talks to nothing except the
 official Relay, and collects nothing at all.
 
-<p align="center">
-  <img src="screenshots/step1_home.png" width="30%" alt="Dashboard: tasks grouped by workspace" />
-  <img src="screenshots/step3_add_device.png" width="30%" alt="Pairing: scan the desktop QR code" />
-  <img src="screenshots/home_dark.png" width="30%" alt="Dark theme" />
-</p>
+> [!IMPORTANT]
+> **Unofficial project.** Zemote is a community-built third-party client with no
+> affiliation with Z.ai or ZCode, and no official endorsement. The ZCode name and
+> related trademarks belong to Z.ai. If anything in this project infringes your
+> rights, please [open an issue](https://github.com/howyoungchen/ZCode-Android/issues)
+> to contact us directly and it will be handled immediately.
+
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <img src="screenshots/chat_light.png" width="260" alt="Live conversation: thinking row, tool call, Markdown reply"><br>
+      <b>Live conversation</b><br>
+      <sub>Streaming reply with thinking rows, tool calls and Markdown</sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="screenshots/chat_dark.png" width="260" alt="The same conversation in dark theme"><br>
+      <b>Dark theme</b><br>
+      <sub>The same monochrome design language, lights out</sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="screenshots/step1_home.png" width="260" alt="Dashboard with tasks grouped by workspace"><br>
+      <b>Mission dashboard</b><br>
+      <sub>Workspaces and tasks at a glance, live status, one-tap new task</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center">
+      <img src="screenshots/step3_add_device.png" width="260" alt="Pair a device by scanning the desktop QR code"><br>
+      <b>Instant pairing</b><br>
+      <sub>Scan the desktop QR code or paste the link; keep several devices</sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="screenshots/home_dark.png" width="260" alt="Dark theme dashboard"><br>
+      <b>Dashboard at night</b><br>
+      <sub>Everything readable in the dark, status pills included</sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="screenshots/step4_settings_page.png" width="260" alt="Settings page"><br>
+      <b>Settings</b><br>
+      <sub>Theme, language, cache management and debug logs</sub>
+    </td>
+  </tr>
+</table>
 
 ## Why this fork?
 
@@ -131,9 +172,9 @@ Android 9+ (API 28), arm64-v8a only. Both light and dark themes, 中文 and
 English UI.
 
 **Something broke. Where do I report it?**
-[GitHub Issues](https://github.com/howyoungchen/ZCode-Android/issues), or the
-QQ group below. The in-app debug log (Settings → Debug) records every protocol
-exchange and copies in one tap — attach it to your report.
+[GitHub Issues](https://github.com/howyoungchen/ZCode-Android/issues). The
+in-app debug log (Settings → Debug) records every protocol exchange and copies
+in one tap — attach it to your report.
 
 ## Project layout
 
@@ -161,8 +202,7 @@ Written in Chinese, living under `docs/`:
 
 ## Community
 
-- QQ Group [1090759263](https://qm.qq.com/q/1090759263) — discussions and help (Chinese)
-- [GitHub Issues](https://github.com/howyoungchen/ZCode-Android/issues) — bug reports and feature requests
+- [GitHub Issues](https://github.com/howyoungchen/ZCode-Android/issues) — bug reports, feature requests and discussions
 
 ## Acknowledgments
 

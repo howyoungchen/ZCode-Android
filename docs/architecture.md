@@ -199,7 +199,7 @@ sequenceDiagram
 |---|---|---|
 | ZCode Relay 服务（配对 URL 中的 host） | 唯一通信信道：配对、bootstrap、bridge、对话流 | 全部功能不可用；协议不兼容时需逆向跟进（README 免责声明已声明该风险） |
 | GitHub Pages（CI 自动部署 `docs/`） | 产品落地页（docs/index.html） | 仅影响下载页，App 功能不受影响 |
-| GitHub 仓库页 / QQ 群 | 反馈入口（浏览器 Intent 打开，App 自身不调 API） | 无功能影响 |
+| GitHub 仓库页 | 反馈入口（浏览器 Intent 打开，App 自身不调 API） | 无功能影响 |
 
 App 不上报遥测、不请求其它第三方接口（`usesCleartextTraffic=false`）。
 

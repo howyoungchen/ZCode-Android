@@ -18,7 +18,6 @@
 |---|---|---|---|
 | 开发机 | 本地 | `./gradlew assembleDebug` 直装 | `local.properties` 含本机 SDK 路径（勿提交） |
 | 发布分发 | GitHub Releases（⚠️ 待确认：仓库内无发布自动化） | 手动上传 APK | release 构建启用 R8 + 资源收缩，**debug 签名** |
-| 局域网分发 | `http://<本机IP>:9000/app-debug.apk` | `start_server.bat`（python http.server；⚠️ 脚本硬编码了作者旧桌面路径 `C:\Users\orang\...`，他人使用需先改） | debug APK |
 | 落地页 | https://howyoungchen.github.io/ZCode-Android | push main 自动部署（两个 workflow 均部署 `docs/`，见 §8） | 仅静态页 |
 
 ## 2. 配置项
@@ -115,5 +114,4 @@ adb logcat -s Zemote/protocol:* Zemote/v4:* Zemote/ipc:*
 ## 8. 已知坑与升级路径
 
 - 两个 Pages workflow（`deploy-docs.yml`：paths 过滤；`pages.yml`：所有 push）功能重复且并发组相同，会互相排队（⚠️ 待确认是否合并）。
-- `start_server.bat` 硬编码作者本机路径，换机器必改。
-- 搞不定时：GitHub Issues（github.com/howyoungchen/ZCode-Android/issues）或 QQ 群 1090759263（README「社区」节）。⚠️ 值班 / oncall 途径待确认。
+- 搞不定时：GitHub Issues（github.com/howyoungchen/ZCode-Android/issues）。⚠️ 值班 / oncall 途径待确认。

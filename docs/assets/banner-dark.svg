@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 140" width="420" height="140" role="img" aria-label="Zemote">
+  <!-- 暗色主题版头：近白墨色 #E5E5E5（与 zai-dark 前景一致），Z 用 sky-400 #38BDF8 -->
+  <!-- 手机外框 -->
+  <path d="M40 20 H58 A16 16 0 0 1 78 40 V100 A16 16 0 0 1 58 120 H40 A16 16 0 0 1 20 100 V40 A16 16 0 0 1 40 20 Z"
+        fill="none" stroke="#E5E5E5" stroke-width="7"/>
+  <!-- 听筒 -->
+  <path d="M45 33 H53" stroke="#E5E5E5" stroke-opacity="0.45" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- Home 指示条 -->
+  <path d="M40 110 H58" stroke="#E5E5E5" stroke-opacity="0.45" stroke-width="5" stroke-linecap="round"/>
+  <!-- Z 闪电（官方 Logo 轮廓，256x218 原始坐标缩放居中于屏幕区） -->
+  <g transform="translate(28.5,45.6) scale(0.16)" fill="#38BDF8">
+    <path d="M134.4 0.13 L116.48 25.602 C113.665 29.57 109.054 32.002 104.064 32.002 L6.4 32.002 L6.4 0 Z"/>
+    <path d="M256 0.13 L102.401 217.732 L0 217.732 L153.599 0.13 Z"/>
+    <path d="M121.601 217.732 L139.65 192.134 C142.465 188.166 147.076 185.734 152.067 185.734 L249.604 185.734 L249.604 217.736 Z"/>
+  </g>
+  <!-- 字标 -->
+  <text x="106" y="97" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+        font-size="74" font-weight="700" letter-spacing="-2.5" fill="#E5E5E5">Zemote</text>
+</svg>

@@ -1,27 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- ZCode 前景：官方 Web 远控页启动壳的 Z 闪电 Logo 原始路径
-     （256x218 viewBox 缩放并居中到 108dp 安全区内，白色） -->
+<!-- Zemote 前景：手机轮廓为主体（体现移动客户端），官方 Z 闪电等比缩小置于屏幕中央作品牌点缀。
+     背景沿用官方远控页启动壳的纵向黑渐变；Z 用 sky-400 与应用主题 brand 一致。
+     全部图形收在 108dp 画布中心 66dp 安全区内（手机外框四角距中心 ≤31dp）。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-  <group
-      android:scaleX="0.2344"
-      android:scaleY="0.2344"
-      android:translateX="24"
-      android:translateY="28.4">
-    <!-- 上横杠（左上圆角） -->
+
+    <!-- 手机外框：x39..69 / y27..81，rx 8.5 -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M134.4,0.13 L116.48,25.602 C113.665,29.57 109.054,32.002 104.064,32.002 L6.4,32.002 L6.4,0 Z" />
-    <!-- 主闪电斜杠 -->
+        android:pathData="M47.5,27 H60.5 A8.5,8.5 0 0 1 69,35.5 V72.5 A8.5,8.5 0 0 1 60.5,81 H47.5 A8.5,8.5 0 0 1 39,72.5 V35.5 A8.5,8.5 0 0 1 47.5,27 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4.25" />
+
+    <!-- 听筒短线（顶部居中） -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M256,0.13 L102.401,217.732 L0,217.732 L153.599,0.13 Z" />
-    <!-- 下横杠（右下圆角） -->
+        android:pathData="M50.5,32 H57.5"
+        android:fillColor="#00000000"
+        android:strokeColor="#80FFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round" />
+
+    <!-- Home 指示条（底部居中） -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M121.601,217.732 L139.65,192.134 C142.465,188.166 147.076,185.734 152.067,185.734 L249.604,185.734 L249.604,217.736 Z" />
-  </group>
+        android:pathData="M49,76 H59"
+        android:fillColor="#00000000"
+        android:strokeColor="#80FFFFFF"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round" />
+
+    <!-- Z 闪电：官方 Logo 原始路径（256x218）缩至宽约 20dp，居中于屏幕区 -->
+    <group
+        android:scaleX="0.078"
+        android:scaleY="0.078"
+        android:translateX="44"
+        android:translateY="43">
+        <path
+            android:fillColor="#38BDF8"
+            android:pathData="M134.4,0.13 L116.48,25.602 C113.665,29.57 109.054,32.002 104.064,32.002 L6.4,32.002 L6.4,0 Z" />
+        <path
+            android:fillColor="#38BDF8"
+            android:pathData="M256,0.13 L102.401,217.732 L0,217.732 L153.599,0.13 Z" />
+        <path
+            android:fillColor="#38BDF8"
+            android:pathData="M121.601,217.732 L139.65,192.134 C142.465,188.166 147.076,185.734 152.067,185.734 L249.604,185.734 L249.604,217.736 Z" />
+    </group>
 </vector>

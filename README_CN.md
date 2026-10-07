@@ -1,6 +1,9 @@
 <div align="center">
 
-# Zemote
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
+  <img src="docs/assets/banner-light.svg" alt="Zemote" height="96">
+</picture>
 
 **桌面端的 ZCode，装进口袋。**
 
@@ -19,11 +22,48 @@ Kotlin · Jetpack Compose · Material 3 · MIT
 用 Kotlin 原生重讲了官方 Web 远控的那套「语言」：会话、工具调用、权限审批，
 全部收进拇指够得到的距离。它只与官方 Relay 通信，也不收集任何数据。
 
-<p align="center">
-  <img src="screenshots/step1_home.png" width="30%" alt="远控仪表盘：按工作区分组的任务" />
-  <img src="screenshots/step3_add_device.png" width="30%" alt="配对：扫桌面端二维码" />
-  <img src="screenshots/home_dark.png" width="30%" alt="深色主题" />
-</p>
+> [!IMPORTANT]
+> **非官方项目。** Zemote 是社区开发的第三方客户端，与 Z.ai / ZCode 官方没有
+> 任何隶属关系，亦未获官方授权；ZCode 名称与相关商标归 Z.ai 所有。如本项目
+> 内容涉及侵权，请[直接提交 Issue](https://github.com/howyoungchen/ZCode-Android/issues)
+> 联系我们，会在第一时间处理。
+
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <img src="screenshots/chat_light.png" width="260" alt="实时会话：思考行、工具调用与 Markdown 回复"><br>
+      <b>实时会话</b><br>
+      <sub>思考行、工具调用、Markdown 回复，边生成边显示</sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="screenshots/chat_dark.png" width="260" alt="同一会话的深色主题"><br>
+      <b>深色会话</b><br>
+      <sub>同一套黑白单色设计语言，熄灯形态</sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="screenshots/step1_home.png" width="260" alt="远控仪表盘：按工作区分组的任务"><br>
+      <b>远控仪表盘</b><br>
+      <sub>工作区与任务一览，状态胶囊实时更新</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center">
+      <img src="screenshots/step3_add_device.png" width="260" alt="扫桌面端二维码添加设备"><br>
+      <b>快速配对</b><br>
+      <sub>扫桌面端二维码或粘贴链接，多台设备切换</sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="screenshots/home_dark.png" width="260" alt="深色模式仪表盘"><br>
+      <b>夜间仪表盘</b><br>
+      <sub>深色下状态胶囊与路径依然清晰</sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="screenshots/step4_settings_page.png" width="260" alt="设置页"><br>
+      <b>设置</b><br>
+      <sub>主题、语言、缓存管理与调试日志</sub>
+    </td>
+  </tr>
+</table>
 
 ## 为什么有这个 fork？
 
@@ -107,9 +147,8 @@ Keystore（AES/GCM）加密，永不离开手机。
 Android 9+（API 28），仅 arm64-v8a。深浅色主题，中文 / English 双语界面。
 
 **遇到问题去哪反馈？**
-[GitHub Issues](https://github.com/howyoungchen/ZCode-Android/issues) 或下方
-QQ 群。应用内的调试日志（设置 → 调试）记录了全部协议交互，一键复制即可随
-反馈附上。
+[GitHub Issues](https://github.com/howyoungchen/ZCode-Android/issues)。
+应用内的调试日志（设置 → 调试）记录了全部协议交互，一键复制即可随反馈附上。
 
 ## 项目布局
 
@@ -137,8 +176,7 @@ app/src/main/java/app/zemote/
 
 ## 社区
 
-- QQ 群 [1090759263](https://qm.qq.com/q/1090759263) —— 交流与求助
-- [GitHub Issues](https://github.com/howyoungchen/ZCode-Android/issues) —— Bug 报告与功能建议
+- [GitHub Issues](https://github.com/howyoungchen/ZCode-Android/issues) —— Bug 报告、功能建议与交流
 
 ## 致谢
 
