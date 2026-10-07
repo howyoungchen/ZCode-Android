@@ -54,6 +54,10 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.ThumbUp
+import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DragIndicator
@@ -773,6 +777,36 @@ private fun MessageTimeline(
         buildDisplayItems(rows, prevItemsRef.get()).also { prevItemsRef.set(it) }
     }
 
+    // 每回合的文件更改汇总（turnHeader.fileChanges）：助手消息行渲染「N 个文件已更改」用
+    val turnChanges = remember(rows) {
+        rows.asSequence()
+            .filter { it.kind == ConvKinds.TURN_HEADER && it.fileChanges != null && !it.turnId.isNullOrBlank() }
+            .associate { it.turnId!! to it.fileChanges!! }
+    }
+
+    // 折叠的回合（官方「已工作 N」行可收起本回合的思考/工具行，正文与用户消息保留）
+    val collapsedTurns = remember { mutableStateOf(emptySet<String>()) }
+
+    // 消息操作：复制在组件内完成，反馈/分叉/撤销/编辑走协议命令
+    val actionRepoState = rememberUpdatedState(repo)
+    val actionScopeState = rememberUpdatedState(scope)
+    val onRowAction: (RowAction, ConvRow) -> Unit = remember {
+        { action, row ->
+            val r = actionRepoState.value
+            val s = actionScopeState.value
+            if (r != null) {
+                s.launch {
+                    when (action) {
+                        is RowAction.Feedback -> r.setAssistantFeedback(row, action.feedback)
+                        RowAction.Fork -> r.forkAssistant(row)
+                        RowAction.Rewind -> r.applyFileRewind(row)
+                        is RowAction.EditUser -> r.editUserQuery(row, action.newText)
+                    }
+                }
+            }
+        }
+    }
+
     // 是否显示「回到最新消息」按钮：用户上翻时出现
     var showScrollToBottom by remember { mutableStateOf(false) }
     // 向上加载更多历史的状态
@@ -810,10 +844,21 @@ private fun MessageTimeline(
     /**
      * 末尾锚点项的索引，从数据推算而不是读 `layoutInfo`。
      * 布局在组合之后才更新，用 `layoutInfo.totalItemsCount - 1` 取会滞后一帧，
-     * 新消息到达时滚动会差一条。顺序：可选状态条目 → displayItems → 可选 working → 锚点。
+     * 新消息到达时滚动会差一条。顺序：可选状态条目 → visibleItems → 可选 working → 锚点。
      */
+    // 折叠回合只隐藏思考/工具等工作行，回合头、用户消息与助手正文保留（对齐官方）
+    val visibleItems = remember(displayItems, collapsedTurns.value) {
+        val collapsed = collapsedTurns.value
+        if (collapsed.isEmpty()) displayItems
+        else displayItems.filter { item ->
+            val row = (item as? DisplayItem.Single)?.row ?: return@filter true
+            val inCollapsed = row.turnId?.let { it in collapsed } == true
+            !inCollapsed || row.kind == ConvKinds.TURN_HEADER ||
+                row.kind == ConvKinds.USER_INPUT || row.kind == ConvKinds.ASSISTANT_TEXT
+        }
+    }
     val anchorIndex = listOf(showLoading, showFailed, showEmpty, showOlderButton, showOlderError)
-        .count { it } + displayItems.size + (if (working) 1 else 0)
+        .count { it } + visibleItems.size + (if (working) 1 else 0)
 
     // 提到 items 外面：以前每个条目、每次重组都会新建一个 lambda，导致捕获它的
     // FadeInContainer / TimelineRow 参数恒不相等，永远无法跳过重组。
@@ -988,21 +1033,41 @@ private fun MessageTimeline(
                 }
             }
 
-            itemsIndexed(displayItems, key = { _, item -> item.key }) { index, item ->
+            itemsIndexed(visibleItems, key = { _, item -> item.key }) { index, item ->
                 when (item) {
                     is DisplayItem.Single -> {
                         // 思考行的「持续了 N 秒」用下一行的时间戳推算；只有思考行才扫描
                         val nextIssuedAt = if (item.row.kind == ConvKinds.REASONING) {
-                            displayItems.drop(index + 1)
+                            visibleItems.drop(index + 1)
                                 .firstOrNull { it is DisplayItem.Single && it.row.issuedAt != null }
                                 ?.let { (it as DisplayItem.Single).row.issuedAt }
                         } else null
-                        if (item.row.kind == ConvKinds.USER_INPUT) {
-                            TimelineRow(item.row, loadAttachment, nextIssuedAt, onOpenSubagent = openSub)
+                        val row = item.row
+                        val fileChanges = if (row.kind == ConvKinds.ASSISTANT_TEXT) turnChanges[row.turnId] else null
+                        val collapsed = collapsedTurns.value.contains(row.turnId)
+                        val toggleTurn = {
+                            val tid = row.turnId
+                            if (tid != null) {
+                                collapsedTurns.value =
+                                    if (collapsedTurns.value.contains(tid)) collapsedTurns.value - tid
+                                    else collapsedTurns.value + tid
+                            }
+                        }
+                        if (row.kind == ConvKinds.USER_INPUT) {
+                            TimelineRow(
+                                row, loadAttachment, nextIssuedAt,
+                                onOpenSubagent = openSub, onAction = onRowAction,
+                            )
                         } else {
                             // AI 产生的内容淡入，更灵动
                             FadeInContainer(item.key) {
-                                TimelineRow(item.row, loadAttachment, nextIssuedAt, onOpenSubagent = openSub)
+                                TimelineRow(
+                                    row, loadAttachment, nextIssuedAt,
+                                    onOpenSubagent = openSub, onAction = onRowAction,
+                                    turnFileChanges = fileChanges,
+                                    turnCollapsed = collapsed,
+                                    onToggleTurn = toggleTurn,
+                                )
                             }
                         }
                     }
@@ -1067,20 +1132,29 @@ private fun TimelineRow(
     loadAttachment: suspend (String) -> app.zemote.protocol.AttachmentData?,
     nextIssuedAt: Long? = null,
     onOpenSubagent: (ConvRow) -> Unit = {},
+    onAction: (RowAction, ConvRow) -> Unit = { _, _ -> },
+    turnFileChanges: app.zemote.protocol.FileChanges? = null,
+    turnCollapsed: Boolean = false,
+    onToggleTurn: () -> Unit = {},
 ) {
     when (row.kind) {
-        ConvKinds.USER_INPUT -> Box(modifier = Modifier.padding(vertical = 4.dp)) {
+        ConvKinds.USER_INPUT -> Column(modifier = Modifier.padding(vertical = 4.dp)) {
             UserBubble(row, loadAttachment)
+            UserActionRow(row, onAction)
         }
         ConvKinds.ASSISTANT_TEXT -> if (row.text.isNotBlank()) {
-            // 官方助手正文：通栏大字（16sp）、前后留白明显大于工具行
-            app.zemote.ui.components.MarkdownText(
-                markdown = row.text,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp),
-            )
+            Column {
+                // 官方助手正文：通栏大字（16sp）、前后留白明显大于工具行
+                app.zemote.ui.components.MarkdownText(
+                    markdown = row.text,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                )
+                MessageActionRow(row, turnFileChanges, onAction)
+            }
         }
+        ConvKinds.TURN_HEADER -> TurnDurationRow(row, turnCollapsed, onToggleTurn)
         ConvKinds.REASONING -> ReasoningRow(row, nextIssuedAt)
         ConvKinds.TOOL_CALL -> ToolSummaryRow(row, onOpenSubagent)
         ConvKinds.SUBAGENT -> if (row.summaryText.isNotBlank() || row.text.isNotBlank()) {
@@ -1092,6 +1166,258 @@ private fun TimelineRow(
         // 图片类消息：占位卡片展示，绝不出现加载失败的破图
         ConvKinds.IMAGE, "screenshot" -> ImagePlaceholder(row)
         else -> Unit
+    }
+}
+
+// ────────────────────────── 消息操作（对齐官方消息操作行） ──────────────────────────
+
+/** 消息行动作：复制走剪贴板（组件内完成），其余经协议命令发给桌面端 */
+private sealed interface RowAction {
+    data class Feedback(val feedback: String?) : RowAction
+    data object Fork : RowAction
+    data object Rewind : RowAction
+    data class EditUser(val newText: String) : RowAction
+}
+
+/**
+ * 回合头「已工作 N 分 M 秒」行（官方 turnHeader）。
+ * 点击折叠/展开本回合的思考与工具行；文字与状态对齐官方 chat.history.*。
+ */
+@Composable
+private fun TurnDurationRow(row: ConvRow, collapsed: Boolean, onToggle: () -> Unit) {
+    val subtlest = app.zemote.ui.theme.subtlestColor()
+    val ctx = LocalContext.current
+    val durationMs = row.durationMs
+        ?: row.startedAt?.let { s -> (row.endedAt ?: System.currentTimeMillis()) - s }
+    val text = when {
+        row.state == "completedInterrupted" -> stringResource(R.string.turn_stopped)
+        row.state == "running" -> stringResource(R.string.turn_working_for, formatDuration(ctx, durationMs ?: 0L))
+        durationMs != null -> stringResource(R.string.turn_worked_for, formatDuration(ctx, durationMs))
+        else -> stringResource(R.string.turn_worked)
+    }
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(top = 6.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = subtlest,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Icon(
+                if (collapsed) Icons.Rounded.KeyboardArrowDown else Icons.Rounded.KeyboardArrowUp,
+                contentDescription = null,
+                tint = subtlest,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            thickness = 1.dp,
+        )
+    }
+}
+
+/**
+ * 助手消息操作行（官方：撤销 · 复制 · 赞 · 踩 · 分叉 + 右侧时间戳）。
+ * 赞/踩按当前反馈高亮，再点一次取消。
+ */
+@Composable
+private fun MessageActionRow(
+    row: ConvRow,
+    fileChanges: app.zemote.protocol.FileChanges?,
+    onAction: (RowAction, ConvRow) -> Unit,
+) {
+    val ctx = LocalContext.current
+    val subtlest = app.zemote.ui.theme.subtlestColor()
+    val scope = rememberCoroutineScope()
+
+    // 回合文件更改摘要 + 撤销（官方「N 个文件已更改 +a -d」）
+    if (fileChanges != null && fileChanges.files > 0 && fileChanges.state != "reverted") {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 2.dp),
+        ) {
+            Text(
+                stringResource(
+                    R.string.msg_changes,
+                    fileChanges.files,
+                    fileChanges.additions,
+                    fileChanges.deletions,
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = subtlest,
+            )
+            if (row.canRewindFiles) {
+                Spacer(modifier = Modifier.width(4.dp))
+                TextButton(
+                    onClick = { onAction(RowAction.Rewind, row) },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    modifier = Modifier.height(28.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.msg_undo),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+            }
+        }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        MessageActionButton(Icons.Rounded.ContentCopy, stringResource(R.string.msg_copy)) {
+            copyToClipboard(ctx, row.text.ifBlank { row.outputText })
+        }
+        val liked = row.feedback == "like"
+        val disliked = row.feedback == "dislike"
+        MessageActionButton(
+            Icons.Rounded.ThumbUp,
+            stringResource(if (liked) R.string.msg_liked else R.string.msg_like),
+            tint = if (liked) MaterialTheme.colorScheme.primary else subtlest,
+        ) {
+            onAction(RowAction.Feedback(if (liked) null else "like"), row)
+        }
+        MessageActionButton(
+            Icons.Rounded.ThumbDown,
+            stringResource(if (disliked) R.string.msg_disliked else R.string.msg_dislike),
+            tint = if (disliked) MaterialTheme.colorScheme.primary else subtlest,
+        ) {
+            onAction(RowAction.Feedback(if (disliked) null else "dislike"), row)
+        }
+        if (row.canFork || row.entityId != null) {
+            MessageActionButton(Icons.Rounded.CallSplit, stringResource(R.string.msg_fork)) {
+                onAction(RowAction.Fork, row)
+            }
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            formatTimestamp(row.issuedAt),
+            style = MaterialTheme.typography.labelSmall,
+            color = subtlest,
+        )
+    }
+}
+
+/** 用户消息操作（官方：气泡右下 复制 / 编辑 图标） */
+@Composable
+private fun UserActionRow(row: ConvRow, onAction: (RowAction, ConvRow) -> Unit) {
+    val ctx = LocalContext.current
+    val subtlest = app.zemote.ui.theme.subtlestColor()
+    var editing by remember(row.rowId) { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MessageActionButton(Icons.Rounded.ContentCopy, stringResource(R.string.msg_copy)) {
+            copyToClipboard(ctx, row.text.ifBlank { row.inputText })
+        }
+        if (row.canEdit && row.entityId != null) {
+            MessageActionButton(Icons.Rounded.Edit, stringResource(R.string.msg_edit)) {
+                editing = true
+            }
+        }
+    }
+
+    if (editing) {
+        var draft by remember(row.rowId) { mutableStateOf(row.text.ifBlank { row.inputText }) }
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text(stringResource(R.string.msg_edit)) },
+            text = {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 6,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        editing = false
+                        if (draft.isNotBlank()) onAction(RowAction.EditUser(draft), row)
+                    },
+                    enabled = draft.isNotBlank(),
+                ) { Text(stringResource(R.string.msg_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { editing = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+}
+
+/** 操作行小图标按钮：14dp 图标、28dp 触达区，颜色克制（官方 size-3.5） */
+@Composable
+private fun MessageActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    tint: Color = app.zemote.ui.theme.subtlestColor(),
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick, modifier = Modifier.size(28.dp)) {
+        Icon(
+            icon,
+            contentDescription = label,
+            tint = tint,
+            modifier = Modifier.size(15.dp),
+        )
+    }
+}
+
+private fun copyToClipboard(ctx: android.content.Context, text: String) {
+    if (text.isBlank()) return
+    val clipboard = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+        as android.content.ClipboardManager
+    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("zemote", text))
+    android.widget.Toast.makeText(ctx, ctx.getString(R.string.msg_copied), android.widget.Toast.LENGTH_SHORT).show()
+}
+
+/** 官方时长格式：最多两个单位，如「3 分 32 秒」「1 时 3 分」 */
+private fun formatDuration(ctx: android.content.Context, ms: Long): String {
+    val total = (ms / 1000).coerceAtLeast(1)
+    val parts = ArrayList<String>(2)
+    val d = total / 86400
+    val h = total % 86400 / 3600
+    val m = total % 3600 / 60
+    val s = total % 60
+    if (d > 0) parts.add(ctx.getString(R.string.duration_day, d))
+    if (h > 0) parts.add(ctx.getString(R.string.duration_hour, h))
+    if (m > 0) parts.add(ctx.getString(R.string.duration_minute, m))
+    if (s > 0 || parts.isEmpty()) parts.add(ctx.getString(R.string.duration_second, s))
+    return parts.take(2).joinToString(" ")
+}
+
+/** 消息时间戳：今天 HH:mm，昨天带前缀，更早给日期（官方 chat.message.time.yesterday） */
+@Composable
+private fun formatTimestamp(ts: Long?): String {
+    if (ts == null || ts <= 0) return ""
+    val now = java.util.Calendar.getInstance()
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = ts }
+    val sameDay = now.get(java.util.Calendar.YEAR) == cal.get(java.util.Calendar.YEAR) &&
+        now.get(java.util.Calendar.DAY_OF_YEAR) == cal.get(java.util.Calendar.DAY_OF_YEAR)
+    val yesterday = (now.clone() as java.util.Calendar).apply {
+        add(java.util.Calendar.DAY_OF_YEAR, -1)
+    }
+    val isYesterday = yesterday.get(java.util.Calendar.YEAR) == cal.get(java.util.Calendar.YEAR) &&
+        yesterday.get(java.util.Calendar.DAY_OF_YEAR) == cal.get(java.util.Calendar.DAY_OF_YEAR)
+    val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ts))
+    return when {
+        sameDay -> time
+        isYesterday -> stringResource(R.string.time_yesterday, time)
+        else -> SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(ts))
     }
 }
 
@@ -1609,11 +1935,13 @@ private fun ReasoningRow(row: ConvRow, nextIssuedAt: Long?) {
                     )
                 }
             } else {
-                // 持续时长：issuedAt 到下一行 issuedAt 的差值；拿不到时按官方文案说「持续了几秒」
-                val durationText = if (row.issuedAt != null && nextIssuedAt != null) {
-                    val seconds = ((nextIssuedAt - row.issuedAt) / 1000L).coerceAtLeast(0L)
-                    if (seconds > 5) stringResource(R.string.reasoning_seconds, seconds)
-                    else stringResource(R.string.reasoning_few_seconds)
+                // 持续时长：优先用官方行自带的 durationMs；缺失时用「issuedAt 到下一行」推算
+                val seconds = row.durationMs?.let { it / 1000L }
+                    ?: if (row.issuedAt != null && nextIssuedAt != null) {
+                        ((nextIssuedAt - row.issuedAt) / 1000L).coerceAtLeast(0L)
+                    } else null
+                val durationText = if (seconds != null && seconds > 5) {
+                    stringResource(R.string.reasoning_seconds, seconds)
                 } else {
                     stringResource(R.string.reasoning_few_seconds)
                 }

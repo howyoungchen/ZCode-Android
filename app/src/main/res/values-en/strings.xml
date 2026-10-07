@@ -295,4 +295,26 @@
     <!-- Privacy -->
     <string name="section_privacy">Privacy</string>
 
+    <!-- Message actions and turn duration (wording aligned with official chat.message / chat.history) -->
+    <string name="turn_worked_for">Worked for %1$s</string>
+    <string name="turn_working_for">Working for %1$s</string>
+    <string name="turn_worked">Worked</string>
+    <string name="turn_stopped">Stopped</string>
+    <string name="duration_day">%1$d d</string>
+    <string name="duration_hour">%1$d h</string>
+    <string name="duration_minute">%1$d m</string>
+    <string name="duration_second">%1$d s</string>
+    <string name="msg_copy">Copy</string>
+    <string name="msg_copied">Copied</string>
+    <string name="msg_like">Like</string>
+    <string name="msg_liked">Liked</string>
+    <string name="msg_dislike">Dislike</string>
+    <string name="msg_disliked">Disliked</string>
+    <string name="msg_fork">Fork</string>
+    <string name="msg_undo">Undo</string>
+    <string name="msg_edit">Edit</string>
+    <string name="msg_save">Save</string>
+    <string name="msg_changes">%1$d files changed +%2$d -%3$d</string>
+    <string name="time_yesterday">Yesterday %1$s</string>
+
 </resources>

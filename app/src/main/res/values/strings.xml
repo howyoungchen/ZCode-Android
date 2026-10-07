@@ -299,4 +299,26 @@
     <!-- 隐私设置 -->
     <string name="section_privacy">隐私</string>
 
+    <!-- 消息操作与回合时长（文案对齐官方 chat.message / chat.history） -->
+    <string name="turn_worked_for">已工作 %1$s</string>
+    <string name="turn_working_for">工作中 %1$s</string>
+    <string name="turn_worked">已处理</string>
+    <string name="turn_stopped">已停止</string>
+    <string name="duration_day">%1$d 天</string>
+    <string name="duration_hour">%1$d 时</string>
+    <string name="duration_minute">%1$d 分</string>
+    <string name="duration_second">%1$d 秒</string>
+    <string name="msg_copy">复制</string>
+    <string name="msg_copied">已复制</string>
+    <string name="msg_like">赞</string>
+    <string name="msg_liked">已赞</string>
+    <string name="msg_dislike">踩</string>
+    <string name="msg_disliked">已踩</string>
+    <string name="msg_fork">分叉</string>
+    <string name="msg_undo">撤销</string>
+    <string name="msg_edit">编辑</string>
+    <string name="msg_save">保存</string>
+    <string name="msg_changes">%1$d 个文件已更改 +%2$d -%3$d</string>
+    <string name="time_yesterday">昨天 %1$s</string>
+
 </resources>
