@@ -332,5 +332,10 @@
     <string name="usage_tool_prompt">Tool prompt</string>
     <string name="model_manage">Manage models</string>
     <string name="model_vision">Vision</string>
+    <string name="more_menu">More</string>
+    <string name="task_rename">Rename task</string>
+    <string name="task_rename_hint">Task name</string>
+    <string name="copy_path">Copy path</string>
+    <string name="copy_session_id">Copy session ID</string>
 
 </resources>

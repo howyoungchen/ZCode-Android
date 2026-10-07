@@ -79,6 +79,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.Psychology
@@ -308,6 +309,7 @@ fun ChatScreen(
         TaskTabRow(
             repo = repo,
             activeId = activeId,
+            workspaceKey = workspaceKey,
             enabled = repo != null && error == null,
             onTogglePanel = { showTaskPanel = !showTaskPanel },
         )
@@ -484,9 +486,14 @@ fun ChatScreen(
 private fun TaskTabRow(
     repo: app.zemote.protocol.ConversationV4Session?,
     activeId: String?,
+    workspaceKey: String,
     enabled: Boolean,
     onTogglePanel: () -> Unit,
 ) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var moreOpen by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
     val sessionEntries by (repo?.sessionEntries?.collectAsState()
         ?: remember { mutableStateOf(emptyList<app.zemote.protocol.SessionEntry>()) })
     val pendingInteractions by (repo?.pendingInteractions?.collectAsState()
@@ -521,6 +528,73 @@ private fun TaskTabRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        Box {
+            IconButton(
+                onClick = { moreOpen = true },
+                modifier = Modifier.size(34.dp),
+                enabled = enabled,
+            ) {
+                Icon(
+                    Icons.Rounded.MoreVert,
+                    contentDescription = stringResource(R.string.more_menu),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.task_rename), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = { moreOpen = false; renaming = true },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.copy_path), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = {
+                        moreOpen = false
+                        copyToClipboard(ctx, workspaceKey)
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.copy_session_id), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = {
+                        moreOpen = false
+                        if (activeId != null) copyToClipboard(ctx, activeId)
+                    },
+                )
+            }
+            if (renaming) {
+                var draft by remember { mutableStateOf(sessionTitle ?: "") }
+                AlertDialog(
+                    onDismissRequest = { renaming = false },
+                    title = { Text(stringResource(R.string.task_rename)) },
+                    text = {
+                        OutlinedTextField(
+                            value = draft,
+                            onValueChange = { draft = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            placeholder = { Text(stringResource(R.string.task_rename_hint)) },
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                renaming = false
+                                val t = draft.trim()
+                                if (t.isNotEmpty()) {
+                                    scope.launch { runCatching { repo?.renameSession(t) } }
+                                }
+                            },
+                            enabled = draft.trim().isNotEmpty(),
+                        ) { Text(stringResource(R.string.msg_save)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { renaming = false }) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                    },
+                )
+            }
+        }
         Box {
             IconButton(
                 onClick = onTogglePanel,
@@ -866,6 +940,7 @@ private fun MessageTimeline(
         val collapsed = collapsedTurns.value
         if (collapsed.isEmpty()) displayItems
         else displayItems.filter { item ->
+            if (item is DisplayItem.Message) return@filter true
             val row = (item as? DisplayItem.Single)?.row ?: return@filter true
             val inCollapsed = row.turnId?.let { it in collapsed } == true
             !inCollapsed || row.kind == ConvKinds.TURN_HEADER ||
@@ -1050,12 +1125,16 @@ private fun MessageTimeline(
 
             itemsIndexed(visibleItems, key = { _, item -> item.key }) { index, item ->
                 when (item) {
+                    is DisplayItem.Message -> {
+                        val fileChanges = turnChanges[item.rows.last().turnId]
+                        FadeInContainer(item.key) {
+                            AssistantMessageBlock(item.rows, fileChanges, onRowAction)
+                        }
+                    }
                     is DisplayItem.Single -> {
                         // 思考行的「持续了 N 秒」用下一行的时间戳推算；只有思考行才扫描
                         val nextIssuedAt = if (item.row.kind == ConvKinds.REASONING) {
-                            visibleItems.drop(index + 1)
-                                .firstOrNull { it is DisplayItem.Single && it.row.issuedAt != null }
-                                ?.let { (it as DisplayItem.Single).row.issuedAt }
+                            visibleItems.drop(index + 1).firstNotNullOfOrNull { it.firstIssuedAt() }
                         } else null
                         val row = item.row
                         val fileChanges = if (row.kind == ConvKinds.ASSISTANT_TEXT) turnChanges[row.turnId] else null
@@ -1241,6 +1320,30 @@ private fun TurnDurationRow(row: ConvRow, collapsed: Boolean, onToggle: () -> Un
 }
 
 /**
+ * 助手消息块：多段正文合并渲染，操作行只在末尾出现一次（对齐官方消息分组）。
+ */
+@Composable
+private fun AssistantMessageBlock(
+    rows: List<ConvRow>,
+    turnFileChanges: app.zemote.protocol.FileChanges?,
+    onAction: (RowAction, ConvRow) -> Unit,
+) {
+    Column {
+        for (r in rows) {
+            if (r.text.isNotBlank()) {
+                app.zemote.ui.components.MarkdownText(
+                    markdown = r.text,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                )
+            }
+        }
+        MessageActionRow(rows.last(), turnFileChanges, onAction)
+    }
+}
+
+/**
  * 助手消息操作行（官方：撤销 · 复制 · 赞 · 踩 · 分叉 + 右侧时间戳）。
  * 赞/踩按当前反馈高亮，再点一次取消。
  */
@@ -1255,7 +1358,9 @@ private fun MessageActionRow(
     val scope = rememberCoroutineScope()
 
     // 回合文件更改摘要 + 撤销（官方「N 个文件已更改 +a -d」）
-    if (fileChanges != null && fileChanges.files > 0 && fileChanges.state != "reverted") {
+    if (fileChanges != null && fileChanges.state != "reverted" &&
+        (fileChanges.files > 0 || fileChanges.additions > 0 || fileChanges.deletions > 0)
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 2.dp),
@@ -1428,11 +1533,17 @@ private fun formatTimestamp(ts: Long?): String {
     }
     val isYesterday = yesterday.get(java.util.Calendar.YEAR) == cal.get(java.util.Calendar.YEAR) &&
         yesterday.get(java.util.Calendar.DAY_OF_YEAR) == cal.get(java.util.Calendar.DAY_OF_YEAR)
-    val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ts))
+    // 手工拼 24 小时制，避免 SimpleDateFormat 随语言环境输出 12 小时制
+    val time = String.format(Locale.ROOT, "%02d:%02d", cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE))
     return when {
         sameDay -> time
         isYesterday -> stringResource(R.string.time_yesterday, time)
-        else -> SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(ts))
+        else -> String.format(
+            Locale.ROOT, "%04d-%02d-%02d",
+            cal.get(java.util.Calendar.YEAR),
+            cal.get(java.util.Calendar.MONTH) + 1,
+            cal.get(java.util.Calendar.DAY_OF_MONTH),
+        )
     }
 }
 
@@ -2174,6 +2285,17 @@ private sealed interface DisplayItem {
     data class Single(val row: ConvRow) : DisplayItem {
         override val key get() = "r-${row.rowId}"
     }
+
+    /** 同回合连续 assistantText 行合并成一条消息（对齐官方消息分组），操作行只渲染一次 */
+    data class Message(val rows: List<ConvRow>) : DisplayItem {
+        override val key get() = "m-${rows.first().rowId}"
+    }
+}
+
+/** 展示项的首个时间戳（思考行耗时推算用） */
+private fun DisplayItem.firstIssuedAt(): Long? = when (this) {
+    is DisplayItem.Single -> row.issuedAt
+    is DisplayItem.Message -> rows.firstOrNull()?.issuedAt
 }
 
 /**
@@ -2188,12 +2310,32 @@ private sealed interface DisplayItem {
  */
 private fun buildDisplayItems(rows: List<ConvRow>, prev: List<DisplayItem>): List<DisplayItem> {
     val out = ArrayList<DisplayItem>(if (prev.isEmpty()) 16 else prev.size)
-    for (row in rows) {
+    var i = 0
+    while (i < rows.size) {
+        val row = rows[i]
         val cached = prev.getOrNull(out.size)
-        out.add(
-            if (cached is DisplayItem.Single && cached.row === row) cached
-            else DisplayItem.Single(row)
-        )
+        if (row.kind == ConvKinds.ASSISTANT_TEXT) {
+            // 官方把连续的 assistantText 行合成一条消息（多段正文共享一条操作行）
+            val group = ArrayList<ConvRow>(2)
+            group.add(row)
+            var j = i + 1
+            while (j < rows.size && rows[j].kind == ConvKinds.ASSISTANT_TEXT) {
+                group.add(rows[j]); j++
+            }
+            out.add(
+                if (cached is DisplayItem.Message && cached.rows.size == group.size &&
+                    cached.rows.indices.all { cached.rows[it] === group[it] }
+                ) cached
+                else DisplayItem.Message(group)
+            )
+            i = j
+        } else {
+            out.add(
+                if (cached is DisplayItem.Single && cached.row === row) cached
+                else DisplayItem.Single(row)
+            )
+            i++
+        }
     }
     return out
 }

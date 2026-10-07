@@ -689,13 +689,10 @@ private fun TaskRow(task: TaskEntry, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val sub = listOfNotNull(
-                task.workspaceLabel?.takeIf { it.isNotBlank() },
-                task.updatedAt?.let { relativeTime(it) },
-            ).joinToString(" · ")
-            if (sub.isNotEmpty()) {
+            // 官方任务行只显示相对时间（工作区归属由卡片标题表达）
+            if (task.updatedAt != null) {
                 Text(
-                    sub,
+                    relativeTime(task.updatedAt),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

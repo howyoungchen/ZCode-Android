@@ -1596,6 +1596,17 @@ class ConversationV4Session private constructor(
         }.onFailure { log("[v4] switchCollaborationMode failed: $it") }.getOrDefault(false)
     }
 
+    /** 重命名任务（官方 renameSession；标题随 sessions-index 推送回来） */
+    suspend fun renameSession(title: String): Boolean = withContext(Dispatchers.IO) {
+        val sessionId = _activeSessionId.value ?: return@withContext false
+        runCatching {
+            val res = sendCommand(sessionId, "renameSession", mapOf("title" to title)) as? Map<*, *>
+            val status = res?.get("status")?.toString()
+            log("[v4] renameSession status=$status")
+            status == null || !status.startsWith("reject")
+        }.onFailure { log("[v4] renameSession failed: $it") }.getOrDefault(false)
+    }
+
     private suspend fun rowCommand(type: String, row: ConvRow, payload: Map<String, Any?>): Boolean =
         withContext(Dispatchers.IO) {
             val sessionId = _activeSessionId.value ?: return@withContext false
