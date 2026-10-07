@@ -517,12 +517,13 @@ SDK: API 28+ (Android 9.0)<br>
         let currentSource = 'mirror'; // 默认国内镜像
         
         // 静态版本信息（CSP fallback）
-        const VERSION = 'v1.11.0';
+        const VERSION = 'v1.11.1';
         const APK_SIZE = '4.2';
         const STATIC_DOWNLOAD_URL = 'https://github.com/howyoungchen/ZCode-Android/releases/download/' + VERSION + '/app-release.apk';
 
         // 版本历史（静态列表）
         const VERSION_HISTORY = [
+            { tag: 'v1.11.1', date: '2026-10-07', desc: '根治网络抖动下的连接降级：发送帧保留待确认并断线自动重发（对齐官方传输层），入站确认自动补发，连续降级恢复不再丢失', url: 'https://github.com/howyoungchen/ZCode-Android/releases/download/v1.11.1/app-release.apk', size: '4.2' },
             { tag: 'v1.11.0', date: '2026-10-07', desc: '协议层可靠性修复：冷启动首开会话不再「无法获取会话」；断网 / 网络切换约 2 秒自动恢复；「加载更早消息」修复；流式期间反复卡顿修复', url: 'https://github.com/howyoungchen/ZCode-Android/releases/download/v1.11.0/app-release.apk', size: '4.2' },
             { tag: 'v1.10.0', date: '2026-10-07', desc: '界面按官方移动端远控页逐块对齐：远控仪表盘（可展开工作区卡 / 任务状态胶囊 / 一键新建任务）、会话页文档流（工具单行摘要 / 思考持续时长）、官方发送栏与主题菜单', url: 'https://github.com/howyoungchen/ZCode-Android/releases/download/v1.10.0/app-release.apk', size: '4.2' },
             { tag: 'v1.9.6', date: '2026-09-19', desc: '修复设置页面导航问题，三个选项现在可以正常点击', url: 'https://github.com/Damianjiang/ZCode-Android/releases/download/v1.9.6/app-release.apk', size: '4.17' },

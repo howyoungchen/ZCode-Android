@@ -49,6 +49,14 @@ private data class ChangelogEntry(
 
 private val Changelogs = listOf(
     ChangelogEntry(
+        "v1.11.1", "2026-10-07",
+        listOf(
+            "根治网络抖动下的桥降级循环：发送帧保留待确认、断线恢复后自动重发（对齐官方传输层）",
+            "入站数据确认失败自动补发，不再因网络抖动触发桌面端超时降级",
+            "连续两次桥降级时第二次恢复不再丢失，流式订阅稳定重建",
+        ),
+    ),
+    ChangelogEntry(
         "v1.11.0", "2026-10-07",
         listOf(
             "修复冷启动打开会话必现「无法获取会话」：桥重建后自动重握手并重试",
