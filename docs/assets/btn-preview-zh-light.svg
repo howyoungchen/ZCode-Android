@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 28" width="96" height="28" role="img" aria-label="在线预览">
+  <rect x="0.5" y="0.5" width="95" height="27" rx="13.5" fill="#171717" stroke="#FAFAFA" stroke-opacity="0.25"/>
+  <path d="M20.5 9.2 L26.5 13.4 L20.5 17.6 Z" fill="#FAFAFA"/>
+  <text x="32" y="17.8" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12.5" font-weight="600" letter-spacing="0.2" fill="#FAFAFA">在线预览</text>
+</svg>

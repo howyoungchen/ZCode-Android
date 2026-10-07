@@ -7,9 +7,21 @@
 
 **Your desktop ZCode, in your pocket.**
 
-**[Releases](https://github.com/howyoungchen/ZCode-Android/releases)** ·
-**[Live preview](https://howyoungchen.github.io/ZCode-Android/)** ·
-**[简体中文](README_CN.md)**
+<a href="https://github.com/howyoungchen/ZCode-Android/releases">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/btn-download-en-dark.svg">
+    <img src="docs/assets/btn-download-en-light.svg" alt="Download APK" height="28">
+  </picture>
+</a>
+&nbsp;
+<a href="https://howyoungchen.github.io/ZCode-Android/">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/btn-preview-en-dark.svg">
+    <img src="docs/assets/btn-preview-en-light.svg" alt="Live Preview" height="28">
+  </picture>
+</a>
+
+English · [简体中文](README_CN.md)
 
 Kotlin · Jetpack Compose · Material 3 · MIT
 

@@ -7,9 +7,21 @@
 
 **桌面端的 ZCode，装进口袋。**
 
-**[Releases](https://github.com/howyoungchen/ZCode-Android/releases)** ·
-**[在线预览](https://howyoungchen.github.io/ZCode-Android/)** ·
-**[English](README.md)**
+<a href="https://github.com/howyoungchen/ZCode-Android/releases">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/btn-download-zh-dark.svg">
+    <img src="docs/assets/btn-download-zh-light.svg" alt="下载 APK" height="28">
+  </picture>
+</a>
+&nbsp;
+<a href="https://howyoungchen.github.io/ZCode-Android/">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/btn-preview-zh-dark.svg">
+    <img src="docs/assets/btn-preview-zh-light.svg" alt="在线预览" height="28">
+  </picture>
+</a>
+
+[English](README.md) · 简体中文
 
 Kotlin · Jetpack Compose · Material 3 · MIT
 
