@@ -1,77 +1,100 @@
-# ZCode-Android (Zemote)
+<div align="center">
 
-[简体中文](README.md) | English
+# Zemote
 
-A native Android client for ZCode remote control. Built by reverse-engineering the
-communication protocol of the official web remote-control page, it lets you view and
-control desktop ZCode sessions from your phone — no browser needed.
+**Control desktop ZCode from your phone**
 
-Written in Kotlin with Jetpack Compose (Material 3). All code is an independent
-implementation.
+[![Release](release-shield)][release-url]
+[![Downloads](downloads-shield)][downloads-url]
+![License](license-shield)
+![Platform](platform-shield)
 
-> **Fork note**: This repository is a fork of [Damianjiang/ZCode-Android](https://github.com/Damianjiang/ZCode-Android),
-> originally developed by Damian2012. All development and maintenance after the fork
-> are handled by [howyoungchen](https://github.com/howyoungchen).
+**[Download APK](https://github.com/howyoungchen/ZCode-Android/releases/latest)** ·
+**[Live preview](https://howyoungchen.github.io/ZCode-Android/)** ·
+**[Changelog](CHANGELOG.md)**
 
-📱 **Live preview**: [howyoungchen.github.io/ZCode-Android](https://howyoungchen.github.io/ZCode-Android)
+[简体中文](README.md) · English
+
+Native Android client · Kotlin + Jetpack Compose (Material 3) · independent implementation
+of the official remote-control protocol
+
+</div>
+
+Zemote reverse-engineers the communication protocol of the official ZCode web
+remote-control page and brings the whole experience natively to Android: streaming
+chat, task panel, permission approvals and attachment uploads — no browser required.
+It is a pure client that talks only to the official Relay and collects no data.
 
 <p align="center">
-  <img src="screenshots/step1_home.png" width="32%" alt="Device list - connect desktop ZCode" />
-  <img src="screenshots/step3_add_device.png" width="32%" alt="Add device via QR scan" />
-  <img src="screenshots/step4_settings_page.png" width="32%" alt="Settings and cache management" />
-</p>
-<p align="center">
-  <img src="screenshots/step5_settings_scroll.png" width="32%" alt="Cache clearing" />
-  <img src="screenshots/home_dark.png" width="32%" alt="Dark mode" />
-  <img src="screenshots/home_light.png" width="32%" alt="Light mode" />
+  <img src="screenshots/step1_home.png" width="30%" alt="Remote-control dashboard with tasks grouped by workspace" />
+  <img src="screenshots/step3_add_device.png" width="30%" alt="Add a device via QR scan or pasted link" />
+  <img src="screenshots/home_dark.png" width="30%" alt="Dark mode" />
 </p>
 
-## ⚠️ Disclaimer
+## About this fork
 
-- This is **not an official client** and has no affiliation with ZCode. The protocol comes
-  from packet capture and reverse engineering of the official web page — an official
-  update can break it at any time.
-- Use it only with your own devices. Follow the ZCode terms of service and local laws.
-  You assume all risk.
-- The `sid` / `hash` in a remote-control URL are device credentials. Never share them.
-  If leaked, regenerate the QR code on the desktop to invalidate them.
-- This project collects no data. Credentials are encrypted with Android Keystore
-  (AES/GCM) and stored only on your phone.
+This repository is a fork of
+[Damianjiang/ZCode-Android](https://github.com/Damianjiang/ZCode-Android) — many
+thanks to the original author
+[Damian2012](https://github.com/Damianjiang) for the protocol reverse engineering
+and the overall architecture.
 
-## ✨ Features
+The mission of this fork is to **polish the UI aesthetics closer to Z.ai**: following
+the official design language — a monochrome black-and-white base with sky-blue
+accents — the dashboard, conversation document flow and composer are aligned
+block-by-block with the official mobile remote page, not merely "similar colors".
+Protocol reliability issues (cold-start session loading, streaming stalls,
+reconnection, …) are also being fixed continuously — see the
+[Changelog](CHANGELOG.md).
 
-- **Device pairing**: scan the desktop pairing QR code or paste the remote-control URL;
-  multiple devices supported with one-tap switching
-- **Workspace browsing**: browse directories opened on the desktop, sessions filtered per workspace
-- **Session list**: running / history sessions with live updates (sessions-index
-  subscription merged with bootstrap)
-- **Chat**: **streaming output** — thinking, replies, and tool calls render incrementally
-  as they are generated, with inline Markdown rendering and image display
-- **Execution activity cards**: consecutive tool calls aggregated into a summary card showing
-  which commands ran and which files changed; tap to expand raw output
-- **Attachments**: send images and files (chunked upload), received images rendered inline
-- **Message queue**: messages sent while the AI is busy are queued — send now, edit, delete,
-  and drag-to-reorder
-- **Model & thinking level switching**: current model, thinking level, and context usage
-  displayed in the session header
-- **Auto-follow / manual scroll**: auto-scroll to latest, or disable to browse history freely
-- **Scroll to bottom button**: one-tap jump back to the latest message
-- **Dark mode**: system follow or manual toggle; supports Android 12+ dynamic color
-- **Foreground keep-alive service**: ongoing notification while connected reduces background
-  disconnections
-- **Subagents**: "View subagent" button inside tool call cards; opens a read-only sub-session
-  page, restores parent on back
-- **Permission approval**: full support for `permission_request` / `elicitation_request`,
-  approve file access or commands directly from your phone
-- **Task panel**: real-time view of running background tasks and pending interactions in the
-  chat header; cancel tasks with one tap
-- **Debug logs**: Settings → Debug → View Logs records all protocol requests/responses and
-  user actions; one-tap copy for sharing
-- **Cache management**: settings page can clear session bridge cache (disconnects workspaces)
-  or debug logs independently
-- **Multi-language**: 中文 / English / follow system; all UI strings covered
+**From here on, this project is developed and maintained independently in this
+repository** by [howyoungchen](https://github.com/howyoungchen).
 
-## 📦 Build
+## Features
+
+**Connection & control**
+
+- Pair by scanning the desktop QR code or pasting the remote-control URL; save
+  multiple devices and switch with one tap
+- Remote-control dashboard: task list grouped by workspace, status pills,
+  one-tap new task
+- Task panel: running background tasks and pending interactions, with one-tap cancel
+- Permission approval: approve file access and command execution right from your phone
+
+**Conversation**
+
+- Streaming output: thinking, replies and tool calls render as they are generated,
+  with Markdown and inline images
+- One-line summary per tool call (terminal / read / search / MCP / subagent), tap to
+  expand raw output
+- Message queue: messages sent while the AI is busy can be sent immediately, edited,
+  deleted or drag-reordered
+- Switch model and thinking level, live context usage; images and files uploaded in
+  chunks
+- Read-only subagent sessions that restore the parent session on back
+
+**Reliability & privacy**
+
+- Automatic reconnect with bridge rebuild and subscription recovery — no app restart
+  needed after a network switch
+- Foreground keep-alive service reduces background kills
+- Credentials encrypted with Android Keystore (AES/GCM) and stored only on the phone
+- Zero telemetry, no requests beyond the official Relay; 中文 / English UI, light and
+  dark themes
+
+## Quick start
+
+1. Open **Remote control** in desktop ZCode and generate a pairing QR code
+2. Open Zemote on your phone, scan the code or paste the link
+3. Pick a workspace, enter the task session and start chatting
+
+## Download
+
+- Get the latest APK from [GitHub Releases](https://github.com/howyoungchen/ZCode-Android/releases)
+- Requirements: Android 9+ (API 28), arm64-v8a only
+- Want a look first? Try the [live preview page](https://howyoungchen.github.io/ZCode-Android/)
+
+## Build from source
 
 Requires JDK 17 and Android SDK 35.
 
@@ -81,98 +104,89 @@ cd ZCode-Android
 ./gradlew assembleRelease   # gradlew.bat on Windows
 ```
 
-The APK is written to `app/build/outputs/apk/release/`. Release builds use R8 and
-resource shrinking, signed with the debug key so they install directly. Use
+The APK is written to `app/build/outputs/apk/release/`. Release builds enable R8 and
+resource shrinking and are signed with the debug key, so they install directly; use
 `assembleDebug` for development.
 
-Requires Android 12+ (minSdk 28), arm64-v8a only.
+## Protocol
 
-## 🚀 Usage
-
-1. Open remote control in desktop ZCode and generate a pairing link
-2. Add a device in the app — paste the link or scan the QR code
-3. Once paired, pick a workspace and start chatting
-
-## 📚 Project docs
-
-- [Architecture](docs/architecture.md) — module layout, protocol layering, key flows
-- [Protocol spec](docs/protocol.md) — layer-by-layer spec of the reverse-engineered protocol
-- [Data model](docs/data-model.md) — local storage (DataStore / SharedPreferences / Keystore) and runtime data
-- [Runbook](docs/runbook.md) — build, release, logging, troubleshooting
-- [ADRs](docs/adr/README.md) — key technical decisions and their trade-offs
-
-## 📁 Project structure
-
-```
-app/src/main/java/app/zemote/
-├── MainActivity.kt                  # App entry point
-├── ZemoteApp.kt                     # Application class
-├── crash/
-│   └── CrashHandler.kt              # Crash capture and restart
-├── protocol/                        # Protocol stack (fully independent implementation)
-│   ├── ConnectionParams.kt          #   URL parsing (sid/hash/t)
-│   ├── Proof.kt                     #   HMAC-SHA256 pairing proof
-│   ├── IpcCodec.kt                  #   7-bit varint codec
-│   ├── RpcFrameTransport.kt         #   rpc-frame fragmentation / CRC32 / reassembly
-│   ├── ChannelClient.kt             #   Channel RPC and event subscriptions
-│   ├── RelayClient.kt               #   WebSocket connection, heartbeat, reconnect
-│   ├── ZemoteClient.kt              #   bootstrap, bridge open and recovery
-│   ├── BridgeSession.kt             #   workspace bridge session
-│   └── ConversationV4.kt            #   Conversation protocol: subscriptions, streaming,
-│                                    #   queue, attachments, permission handling
-├── service/
-│   └── KeepAliveService.kt          #   Foreground keep-alive notification
-├── state/                           # State layer
-│   ├── AccountStore.kt              #   Persisted device list
-│   ├── AppSessionViewModel.kt       #   Connection and conversation-repo management
-│   ├── AppSettings.kt               #   App settings (message count limit, etc.)
-│   ├── CredentialCipher.kt          #   Keystore AES/GCM encryption
-│   └── LanguagePrefs.kt             #   Language preference
-└── ui/                              # Compose UI
-    ├── theme/                       #   M3 theme, palettes, typography
-    ├── component/                   #   Shared components
-    ├── components/                  #   Markdown rendering
-    ├── logger/
-    │   └── ZemoteLogger.kt          #   Protocol-level debug logging
-    ├── navigation/
-    │   └── ZemoteNavHost.kt         #   Navigation routes
-    └── screens/                     #   Individual screens
-        ├── AccountsScreen.kt        #     Device list
-        ├── ChatAndTasksScreen.kt    #     Chat page + task panel
-        ├── ChangelogScreen.kt       #     In-app changelog
-        ├── CrashScreen.kt           #     Crash report viewer
-        ├── DeviceSwitchSheet.kt     #     Device switch dialog
-        ├── LogScreen.kt             #     Debug log viewer
-        ├── MainScreen.kt            #     Bottom navigation shell
-        ├── MainShellScreen.kt       #     Post-login main page
-        ├── PersonalizeScreen.kt     #     Theme personalization
-        ├── QrScanScreen.kt          #     QR code pairing scanner
-        └── SettingsScreen.kt        #     Settings page
-```
-
-## 📡 Protocol
-
-The stack mirrors the official web client's behavior; the implementation is entirely
-independent:
+The stack is reverse-engineered layer by layer from the official web client,
+behavior-identical but implemented from scratch:
 
 | Layer | Notes |
 |---|---|
 | Relay | wss connection, 10s heartbeat, exponential-backoff reconnect |
-| Pairing | HMAC-SHA256(nonce ‖ role ‖ deviceSid, passHash) |
-| IPC | 7-bit varint, type tags (String / Int / JSON / Bytes / Array) |
+| Pairing | HMAC-SHA256 pairing proof |
+| IPC | 7-bit varint codec (String / Int / JSON / Bytes / Array) |
 | RpcFrame | 512KB fragments, CRC32 verification, acks, retransmit on fault |
-| Channel RPC | request/response promise + event subscriptions |
-| Conversation V4 | snapshot + delta subscriptions, wire-frame reassembly, session queue, attachment upload, permission handling |
+| Channel RPC | request/response + event subscriptions |
+| Conversation V4 | snapshot & delta subscriptions, stream reassembly, message queue, attachment upload, permission handling |
 
-Implementation details of the conversation protocol cross-reference the original
-Flutter version of this project (same wire behavior).
+The full message, field and timing spec lives in the
+[protocol doc](docs/protocol.md) (Chinese).
+
+## Project structure
+
+A pure client, single Gradle module `:app`:
+
+```
+app/src/main/java/app/zemote/
+├── protocol/    # Protocol stack: Relay, pairing, IPC codec, rpc-frame, Conversation V4
+├── state/       # State layer: device persistence, credential encryption, session management
+├── ui/          # Compose UI: theme, shared components, screens
+├── service/     # Foreground keep-alive service
+└── crash/       # Crash capture and reporting
+```
+
+See the [architecture doc](docs/architecture.md) for layering and key flow sequences.
+
+## Documentation
+
+All docs are currently written in Chinese:
+
+| Doc | Contents |
+|---|---|
+| [Architecture](docs/architecture.md) | Modules, protocol layering, key flow sequences |
+| [Protocol spec](docs/protocol.md) | Layer-by-layer spec: messages, fields, timing constants |
+| [Data model](docs/data-model.md) | Local storage (DataStore / Keystore) and runtime data |
+| [Runbook](docs/runbook.md) | Build, release, logging, troubleshooting |
+| [ADRs](docs/adr/README.md) | Key technical decisions and their trade-offs |
+| [Changelog](CHANGELOG.md) | Changes in every release |
 
 ## Community
 
-- **QQ Group**: [1090759263](https://qm.qq.com/q/1090759263) — discussions and bug reports
-- **GitHub Issues**: [github.com/howyoungchen/ZCode-Android/issues](https://github.com/howyoungchen/ZCode-Android/issues)
+- QQ Group [1090759263](https://qm.qq.com/q/1090759263): discussions and feedback (Chinese)
+- [GitHub Issues](https://github.com/howyoungchen/ZCode-Android/issues): bug reports and feature requests
 
-## 📄 License
+## ⚠️ Disclaimer
 
-MIT. The ZCode name and related trademarks belong to their respective owners; this
-project has no affiliation with them.
+- Zemote is **not an official client** and has no affiliation with ZCode / Z.ai. The
+  protocol comes from packet capture and reverse engineering of the official web page;
+  an official update can break it at any time.
+- Use it only with your own devices. Follow the terms of service and local laws; you
+  assume all risk.
+- The `sid` / `hash` in a pairing URL are device credentials — **never share them**.
+  If leaked, regenerate the QR code on the desktop to invalidate them.
+- This project collects no data; credentials are encrypted with Keystore and stored
+  only on your phone.
+
+## Acknowledgments & license
+
+- The original project
+  [Damianjiang/ZCode-Android](https://github.com/Damianjiang/ZCode-Android)
+  (Damian2012) — protocol reverse engineering and overall architecture; the
+  conversation protocol implementation cross-references the original Flutter version
+  of that project (same wire behavior).
+- During its development, AI (LLMs) assisted with parts of the original codebase; the
+  overall architecture and core protocol were completed by the original author, and
+  AI output was human-reviewed before inclusion.
+
+Released under the MIT license. The ZCode name and related trademarks belong to their
+respective owners; this project has no affiliation with them.
+
+[release-shield]: https://img.shields.io/github/v/release/howyoungchen/ZCode-Android?style=flat-square&color=0ea5e9
+[release-url]: https://github.com/howyoungchen/ZCode-Android/releases/latest
+[downloads-shield]: https://img.shields.io/github/downloads/howyoungchen/ZCode-Android/total?style=flat-square&color=0ea5e9
+[downloads-url]: https://github.com/howyoungchen/ZCode-Android/releases
+[license-shield]: https://img.shields.io/badge/license-MIT-111827?style=flat-square
+[platform-shield]: https://img.shields.io/badge/Android-9%2B-111827?style=flat-square&logo=android&logoColor=white

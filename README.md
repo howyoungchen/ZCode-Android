@@ -1,58 +1,85 @@
-# ZCode-Android（Zemote）
+<div align="center">
 
-简体中文 | [English](README_EN.md)
+# Zemote
 
-Android 端的 ZCode 远程控制客户端。通过逆向官方 Web 远程控制页面的通信协议实现，
-可以在手机上查看和操控桌面端 ZCode 的会话，不依赖浏览器。
+**在手机上远程控制桌面端 ZCode**
 
-Kotlin + Jetpack Compose（Material 3）编写，全部代码为独立实现。
+[![Release](release-shield)][release-url]
+[![Downloads](downloads-shield)][downloads-url]
+![License](license-shield)
+![Platform](platform-shield)
 
-> **Fork 说明**：本仓库 fork 自 [Damianjiang/ZCode-Android](https://github.com/Damianjiang/ZCode-Android)，原项目由 Damian2012 独立开发；fork 之后的功能开发与维护由 [howyoungchen](https://github.com/howyoungchen) 负责。
->
-> **AI 参与说明**：原项目在开发过程中有 AI（大语言模型）辅助编写部分代码；整体架构与核心协议实现由原作者独立完成并负责，AI 辅助产出经人工审查、修正后纳入代码库。
+**[下载 APK](https://github.com/howyoungchen/ZCode-Android/releases/latest)** ·
+**[在线预览](https://howyoungchen.github.io/ZCode-Android/)** ·
+**[更新日志](CHANGELOG.md)**
 
-📱 **在线预览**: [howyoungchen.github.io/ZCode-Android](https://howyoungchen.github.io/ZCode-Android)
+简体中文 · [English](README_EN.md)
+
+原生 Android 客户端 · Kotlin + Jetpack Compose（Material 3）· 独立实现官方远控协议
+
+</div>
+
+Zemote 逆向了 ZCode 官方 Web 远程控制页的通信协议，把整个远控体验原生搬到 Android：
+流式对话、任务面板、权限审批、附件上传，全部不依赖浏览器。纯客户端设计，
+只与官方 Relay 通信，不收集任何数据。
 
 <p align="center">
-  <img src="screenshots/step1_home.png" width="32%" alt="设备列表 - 连接桌面 ZCode" />
-  <img src="screenshots/step3_add_device.png" width="32%" alt="扫码添加设备" />
-  <img src="screenshots/step4_settings_page.png" width="32%" alt="设置与缓存管理" />
-</p>
-<p align="center">
-  <img src="screenshots/step5_settings_scroll.png" width="32%" alt="缓存清除" />
-  <img src="screenshots/home_dark.png" width="32%" alt="深色模式" />
-  <img src="screenshots/home_light.png" width="32%" alt="浅色模式" />
+  <img src="screenshots/step1_home.png" width="30%" alt="远控仪表盘：按工作区分组的任务列表" />
+  <img src="screenshots/step3_add_device.png" width="30%" alt="扫码或粘贴链接添加设备" />
+  <img src="screenshots/home_dark.png" width="30%" alt="深色模式" />
 </p>
 
-## ⚠️ 免责声明
+## 关于本 Fork
 
-- 本项目**不是官方客户端**，与 ZCode 官方没有任何关系。协议来自对官方 Web 页面的抓包与逆向，官方一更新就可能失效。
-- 仅供个人连接自己的设备使用，请遵守 ZCode 服务条款和当地法律，使用风险自负。
-- 远程控制 URL 里的 `sid` / `hash` 等同于设备凭据，**不要分享给任何人**。泄露后在桌面端重新生成二维码即可作废。
-- 本项目不收集任何数据，凭据用 Android Keystore（AES/GCM）加密后只存在手机本地。
+本仓库 fork 自 [Damianjiang/ZCode-Android](https://github.com/Damianjiang/ZCode-Android)，
+感谢原作者 [Damian2012](https://github.com/Damianjiang) 完成协议逆向与整体架构。
 
-## ✨ 功能
+这个 fork 的使命，是**把界面美学打磨得更贴近 Z.ai**：以官方设计语言为基准——
+黑白单色为底、sky 蓝点缀——远控仪表盘、会话文档流与发送栏逐块对齐官方移动端远控页，
+而不只是「配色接近」。同时持续修复协议层可靠性问题
+（冷启动会话加载、流式卡顿、断线重连等，见[更新日志](CHANGELOG.md)）。
 
-- **设备配对**：扫描桌面端配对二维码或粘贴远程控制 URL，支持保存多台设备并随时切换
-- **远控仪表盘**：对齐官方移动端远控页 —— 大标题头部、连接提示卡、按工作区分组的任务列表（可展开收起），任务状态胶囊（运行中 / 已完成 / 错误），「+」一键新建任务
-- **对话**：流式实时输出（思考、回复、工具调用边生成边显示），Markdown 渲染，图片消息内联展示；消息流为官方文档流样式（助手通栏大字、用户右对齐气泡）
-- **工具与思考行**：每条工具调用一行摘要（终端 / 读取 / 搜索 / MCP…），点击展开原始输出；思考行显示「思考 · 持续了 N 秒」，生成中实时预览
-- **附件上传**：发送图片和文件（分片上传），收到图片消息直接渲染
-- **消息排队**：AI 回复期间发送的消息进入队列，支持立即发送、编辑、删除、拖动排序
-- **模型与推理强度切换**：发送栏内官方样式的模型胶囊与推理强度胶囊，上下文用量百分比实时显示
-- **回到最新消息**：浮动小胶囊，一键滚回最新内容
-- **主题菜单**：仪表盘与会话页顶栏的 palette 图标可快速切换浅色 / 深色 / 跟随系统
-- **前台保活服务**：连接期间常驻通知，降低后台被杀导致的掉线
-- **子智能体**：工具行内置「查看子智能体」入口，点击进入只读子会话，返回时自动恢复父会话
-- **权限审批**：完整支持 `permission_request` / `elicitation_request`，在手机上即可审批文件或执行命令
-- **任务面板**：会话页任务栏的面板开关显示后台运行中的任务、待审批交互，支持一键终止运行中任务
-- **调试日志**：设置内新增日志页，记录所有协议请求/响应与用户操作，支持一键复制反馈
-- **缓存管理**：设置页可单独清除会话桥接缓存（断开工作区连接）和调试日志
-- **多语言**：中文 / English / 跟随系统，全部界面文本双语覆盖
+**今后本项目在本仓库独立开发与维护**，由 [howyoungchen](https://github.com/howyoungchen) 负责。
 
-## 📦 构建
+## 主要功能
 
-需要 JDK 17 和 Android SDK 35。
+**连接与控制**
+
+- 扫码或粘贴配对链接添加设备，多设备保存、一键切换
+- 远控仪表盘：按工作区分组的任务列表、运行状态胶囊、一键新建任务
+- 任务面板：查看后台运行任务与待审批交互，一键终止
+- 权限审批：在手机上批准文件访问与命令执行
+
+**对话体验**
+
+- 流式输出：思考、回复、工具调用边生成边显示，Markdown 渲染、图片内联
+- 每条工具调用一行摘要（终端 / 读取 / 搜索 / MCP / 子智能体），点击展开原始输出
+- 消息排队：AI 回复期间发送的消息支持立即发送、编辑、删除、拖动排序
+- 模型与推理强度切换，上下文用量实时显示；图片和文件分片上传
+- 子智能体只读会话，返回时自动恢复父会话
+
+**可靠与隐私**
+
+- 断线自动重连、桥重建与订阅恢复，网络切换后无需重启 App
+- 前台保活服务，降低后台被杀导致的掉线
+- 凭据经 Android Keystore（AES/GCM）加密，仅存手机本地
+- 零遥测、不请求 Relay 之外的任何接口；中文 / English 双语，深浅色主题
+
+## 快速上手
+
+1. 桌面端 ZCode 打开「远程控制」，生成配对二维码
+2. 手机打开 Zemote，扫码或粘贴配对链接
+3. 选择工作区，进入任务会话，开始对话
+
+## 下载安装
+
+- 前往 [GitHub Releases](https://github.com/howyoungchen/ZCode-Android/releases) 下载最新 APK
+- 系统要求：Android 9+（API 28），仅 arm64-v8a 架构
+- 安装前想先看看界面：[在线预览页](https://howyoungchen.github.io/ZCode-Android/)
+
+## 从源码构建
+
+需要 JDK 17 与 Android SDK 35。
 
 ```bash
 git clone https://github.com/howyoungchen/ZCode-Android.git
@@ -61,92 +88,75 @@ cd ZCode-Android
 ```
 
 产物在 `app/build/outputs/apk/release/`。release 包开启 R8 与资源收缩，
-使用 debug 签名，可以直接安装。日常调试用 `assembleDebug`。
+使用 debug 签名，可直接安装；日常开发用 `assembleDebug`。
 
-系统要求 Android 12+（minSdk 28），仅支持 arm64-v8a 架构。
+## 协议实现
 
-## 🚀 使用
-
-1. 桌面端 ZCode 打开远程控制，生成配对链接
-2. App 内添加设备，粘贴链接或扫码
-3. 配对完成后选择工作区，进入会话即可对话
-
-## 📚 项目文档
-
-- [架构文档](docs/architecture.md) — 模块划分、协议栈分层、关键流程时序
-- [协议接口文档](docs/protocol.md) — 逆向协议逐层规范：消息、字段、时序参数
-- [数据模型](docs/data-model.md) — 本地存储（DataStore / SharedPreferences / Keystore）与运行时数据
-- [Runbook 运维手册](docs/runbook.md) — 构建、发布、日志与故障排查
-- [ADR 决策记录](docs/adr/README.md) — 关键技术决策及其背景与代价
-
-## 📁 项目结构
-
-```
-app/src/main/java/app/zemote/
-├── MainActivity.kt                  # 应用入口
-├── ZemoteApp.kt                     # Application 类
-├── crash/
-│   └── CrashHandler.kt              # 崩溃捕获与重启
-├── protocol/                        # 协议栈（全部独立实现）
-│   ├── ConnectionParams.kt          #   URL 解析（sid/hash/t）
-│   ├── Proof.kt                     #   HMAC-SHA256 配对证明
-│   ├── IpcCodec.kt                  #   7-bit varint 编解码
-│   ├── RpcFrameTransport.kt         #   rpc-frame 分片/CRC32/重组
-│   ├── ChannelClient.kt             #   Channel RPC 与事件订阅
-│   ├── RelayClient.kt               #   WebSocket 长连接、心跳、重连
-│   ├── ZemoteClient.kt              #   bootstrap、bridge 打开与恢复
-│   ├── BridgeSession.kt             #   workspace bridge 会话
-│   └── ConversationV4.kt            #   对话协议：订阅/流式/队列/附件/权限
-├── service/
-│   └── KeepAliveService.kt          #   前台保活通知
-├── state/                           # 状态层
-│   ├── AccountStore.kt              #   设备列表持久化
-│   ├── AppSessionViewModel.kt       #   连接与会话仓库管理
-│   ├── AppSettings.kt               #   应用设置（消息条数等）
-│   ├── CredentialCipher.kt          #   Keystore AES/GCM 加密
-│   └── LanguagePrefs.kt             #   语言设置
-└── ui/                              # Compose 界面
-    ├── theme/                       #   M3 主题、配色、字体
-    ├── component/                   #   通用组件
-    ├── components/                  #   Markdown 渲染
-    ├── logger/
-    │   └── ZemoteLogger.kt          #   协议层调试日志
-    ├── navigation/
-    │   └── ZemoteNavHost.kt         #   导航路由
-    └── screens/                     #   各页面
-        ├── AccountsScreen.kt        #     设备列表
-        ├── ChatAndTasksScreen.kt    #     聊天页 + 任务面板
-        ├── ChangelogScreen.kt       #     更新日志
-        ├── CrashScreen.kt           #     崩溃报告页
-        ├── DeviceSwitchSheet.kt     #     设备切换弹窗
-        ├── LogScreen.kt             #     调试日志页
-        ├── MainScreen.kt            #     底部导航主屏
-        ├── MainShellScreen.kt       #     登录后主页
-        ├── PersonalizeScreen.kt     #     主题个性化
-        ├── QrScanScreen.kt          #     扫码配对
-        └── SettingsScreen.kt        #     设置页
-```
-
-## 📡 协议
-
-协议栈与官方 Web 客户端行为一致，实现全部独立完成：
+协议栈逐层逆向自官方 Web 客户端，行为保持一致，代码全部独立实现：
 
 | 层级 | 说明 |
 |---|---|
 | Relay | wss 长连接，10s 心跳，指数退避重连 |
-| 配对 | HMAC-SHA256(nonce ‖ role ‖ deviceSid, passHash) |
-| IPC | 7-bit varint，类型标签（String / Int / JSON / Bytes / Array） |
+| 配对 | HMAC-SHA256 配对证明 |
+| IPC | 7-bit varint 编解码（String / Int / JSON / Bytes / Array） |
 | RpcFrame | 512KB 分片、CRC32 校验、ack 应答、断线重传 |
-| Channel RPC | request/response promise + 事件监听 |
-| Conversation V4 | 订阅快照 + 增量、wire 帧分片重组、会话队列、附件上传、权限审批 |
+| Channel RPC | request/response + 事件订阅 |
+| Conversation V4 | 快照与增量订阅、流式重组、消息队列、附件上传、权限审批 |
 
-对话协议的实现细节参考了同项目原 Flutter 版本（协议行为一致）。
+逐层的消息、字段与时序规范见[协议文档](docs/protocol.md)。
+
+## 项目结构
+
+纯客户端单模块 `:app`：
+
+```
+app/src/main/java/app/zemote/
+├── protocol/    # 协议栈：Relay、配对、IPC 编解码、rpc-frame、Conversation V4
+├── state/       # 状态层：设备持久化、凭据加密、连接与会话管理
+├── ui/          # Compose 界面：主题、通用组件、各页面
+├── service/     # 前台保活服务
+└── crash/       # 崩溃捕获与报告
+```
+
+模块分层与关键流程时序见[架构文档](docs/architecture.md)。
+
+## 文档
+
+| 文档 | 内容 |
+|---|---|
+| [架构文档](docs/architecture.md) | 模块划分、协议栈分层、关键流程时序 |
+| [协议规范](docs/protocol.md) | 逆向协议逐层规范：消息、字段、时序常量 |
+| [数据模型](docs/data-model.md) | 本地存储（DataStore / Keystore）与运行时数据 |
+| [Runbook](docs/runbook.md) | 构建、发布、日志与故障排查 |
+| [ADR](docs/adr/README.md) | 关键技术决策及其取舍 |
+| [更新日志](CHANGELOG.md) | 每个版本的改动明细 |
 
 ## 社区
 
-- **QQ 群**：[1090759263](https://qm.qq.com/q/1090759263) — 使用交流、问题反馈
-- **GitHub Issues**：[github.com/howyoungchen/ZCode-Android/issues](https://github.com/howyoungchen/ZCode-Android/issues)
+- QQ 群 [1090759263](https://qm.qq.com/q/1090759263)：使用交流与问题反馈
+- [GitHub Issues](https://github.com/howyoungchen/ZCode-Android/issues)：Bug 报告与功能建议
 
-## 📄 许可证
+## ⚠️ 免责声明
 
-MIT。ZCode 名称及相关商标归其权利人所有，本项目与其无任何隶属关系。
+- Zemote **不是官方客户端**，与 ZCode / Z.ai 无任何隶属关系。协议来自对官方 Web 页面的
+  抓包与逆向，官方更新可能导致失效。
+- 仅供连接你自己的设备使用，请遵守服务条款与当地法律，风险自负。
+- 配对 URL 中的 `sid` / `hash` 等同于设备控制权，**不要分享给任何人**；
+  若泄露，在桌面端重新生成二维码即可作废旧凭据。
+- 本项目不收集任何数据，凭据经 Keystore 加密后仅存于手机本地。
+
+## 致谢与许可证
+
+- 原项目 [Damianjiang/ZCode-Android](https://github.com/Damianjiang/ZCode-Android)（Damian2012）——
+  协议逆向与整体架构；对话协议实现参考了同项目原 Flutter 版本（协议行为一致）。
+- 原项目开发中有 AI（大语言模型）辅助编写部分代码；整体架构与核心协议由原作者独立完成并负责，
+  AI 产出经人工审查、修正后纳入。
+
+以 MIT 许可证发布。ZCode 名称及相关商标归其权利人所有，本项目与其无任何隶属关系。
+
+[release-shield]: https://img.shields.io/github/v/release/howyoungchen/ZCode-Android?style=flat-square&color=0ea5e9
+[release-url]: https://github.com/howyoungchen/ZCode-Android/releases/latest
+[downloads-shield]: https://img.shields.io/github/downloads/howyoungchen/ZCode-Android/total?style=flat-square&color=0ea5e9
+[downloads-url]: https://github.com/howyoungchen/ZCode-Android/releases
+[license-shield]: https://img.shields.io/badge/license-MIT-111827?style=flat-square
+[platform-shield]: https://img.shields.io/badge/Android-9%2B-111827?style=flat-square&logo=android&logoColor=white
