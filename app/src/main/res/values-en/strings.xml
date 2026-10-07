@@ -330,5 +330,7 @@
     <string name="ctx_title">Context windows</string>
     <string name="ctx_hit_rate">Average cache hit rate</string>
     <string name="usage_tool_prompt">Tool prompt</string>
+    <string name="model_manage">Manage models</string>
+    <string name="model_vision">Vision</string>
 
 </resources>

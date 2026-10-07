@@ -75,6 +75,8 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Palette
@@ -155,6 +157,7 @@ fun ChatScreen(
     session: AppSessionViewModel,
     onBack: () -> Unit,
     onOpenSubagent: (String, String, String) -> Unit = { _, _, _ -> },
+    onOpenAISettings: () -> Unit = {},
     readOnly: Boolean = false,
     themeManager: ThemeManager? = null,
 ) {
@@ -387,6 +390,7 @@ fun ChatScreen(
                     uploadStatus = uploadStatus,
                     onRemoveFile = { f -> pendingFiles = pendingFiles - f },
                     onAttach = { pickFiles.launch(arrayOf("*/*")) },
+                    onManageModels = onOpenAISettings,
                     onSend = { queued ->
                         val text = input
                         val files = pendingFiles
@@ -682,6 +686,7 @@ private fun ComposerSection(
     uploadStatus: String?,
     onRemoveFile: (PendingFile) -> Unit,
     onAttach: () -> Unit,
+    onManageModels: () -> Unit = {},
     onSend: (queued: Boolean) -> Unit,
     onStop: () -> Unit,
 ) {
@@ -739,6 +744,7 @@ private fun ComposerSection(
         onModeSelect = { mode ->
             scope.launch { runCatching { repo?.setCollaborationMode(mode) } }
         },
+        onManageModels = onManageModels,
         onSend = onSend,
         onStop = onStop,
     )
@@ -2513,6 +2519,7 @@ private fun ComposerBar(
     onThoughtSelect: (String) -> Unit,
     onModelSelect: (provider: String, model: String) -> Unit,
     onModeSelect: (String) -> Unit,
+    onManageModels: () -> Unit,
     onSend: (queued: Boolean) -> Unit,
     onStop: () -> Unit,
 ) {
@@ -2584,6 +2591,7 @@ private fun ComposerBar(
                             config = config,
                             modelOptions = modelOptions,
                             onSelect = onModelSelect,
+                            onManageModels = onManageModels,
                         )
                         ThoughtLevelButton(
                             config = config,
@@ -2689,16 +2697,28 @@ private fun ThoughtLevelButton(
 
 /**
  * 模型胶囊：官方「GLM-5.3 ⌄」样式 —— 当前模型名 + 下拉箭头。
+ * 菜单按供应商分组（对齐官方）：当前供应商的模型内联列出，其余供应商下钻子菜单；
+ * 支持视觉的模型带「视觉」徽章，底部有「管理模型」入口。
  */
 @Composable
 private fun ModelButton(
     config: app.zemote.protocol.ConvConfig?,
     modelOptions: List<app.zemote.protocol.ModelOption>,
     onSelect: (provider: String, model: String) -> Unit,
+    onManageModels: () -> Unit = {},
 ) {
     var open by remember { mutableStateOf(false) }
+    var submenuProvider by remember { mutableStateOf<String?>(null) }
     val currentProvider = config?.provider
     val currentModel = config?.model
+
+    // 按供应商分组（保持 prepareWorkspace 给出的顺序）
+    val groups = remember(modelOptions) {
+        modelOptions.groupBy { it.provider }.entries.map { (provider, items) -> provider to items }
+    }
+    val currentGroupKey = groups.firstOrNull { (_, items) ->
+        items.any { it.provider == currentProvider && it.model == currentModel }
+    }?.first ?: groups.firstOrNull()?.first
 
     Box {
         Row(
@@ -2722,30 +2742,146 @@ private fun ModelButton(
                 modifier = Modifier.size(14.dp),
             )
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false; submenuProvider = null },
+        ) {
             if (modelOptions.isEmpty()) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.model_empty), style = MaterialTheme.typography.bodyMedium) },
                     onClick = { open = false },
                 )
+                return@DropdownMenu
+            }
+            val sub = submenuProvider
+            if (sub == null) {
+                // 顶层：当前供应商组内联，其余供应商是下钻入口
+                for ((provider, items) in groups) {
+                    if (provider == currentGroupKey) {
+                        ModelGroupHeader(provider)
+                        for (opt in items) {
+                            ModelOptionItem(opt, currentProvider, currentModel, onSelect) { open = false; submenuProvider = null }
+                        }
+                    } else {
+                        DropdownMenuItem(
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Rounded.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            },
+                            text = { Text(providerDisplayName(provider), style = MaterialTheme.typography.bodyMedium) },
+                            onClick = { submenuProvider = provider },
+                        )
+                    }
+                }
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.model_manage), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = { open = false; submenuProvider = null; onManageModels() },
+                )
             } else {
-                for (opt in modelOptions) {
-                    val isSelected = opt.provider == currentProvider && opt.model == currentModel
-                    DropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(opt.label, style = MaterialTheme.typography.bodyMedium)
-                                if (isSelected) {
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(15.dp))
-                                }
-                            }
-                        },
-                        onClick = { open = false; onSelect(opt.provider, opt.model) },
+                // 下钻：某供应商的模型列表 + 返回
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clickable { submenuProvider = null }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Icon(
+                        Icons.Rounded.KeyboardArrowLeft,
+                        contentDescription = stringResource(R.string.back),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp),
                     )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(providerDisplayName(sub), style = MaterialTheme.typography.bodyMedium)
+                }
+                HorizontalDivider()
+                for (opt in groups.firstOrNull { it.first == sub }?.second.orEmpty()) {
+                    ModelOptionItem(opt, currentProvider, currentModel, onSelect) { open = false; submenuProvider = null }
                 }
             }
         }
+    }
+}
+
+/** 模型选项条目：名称 + 可选「视觉」徽章 + 选中勾 */
+@Composable
+private fun ModelOptionItem(
+    opt: app.zemote.protocol.ModelOption,
+    currentProvider: String?,
+    currentModel: String?,
+    onSelect: (String, String) -> Unit,
+    onDone: () -> Unit,
+) {
+    val selected = opt.provider == currentProvider && opt.model == currentModel
+    DropdownMenuItem(
+        trailingIcon = {
+            if (selected) {
+                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+            }
+        },
+        text = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    opt.label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (opt.vision) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    VisionBadge()
+                }
+            }
+        },
+        onClick = { onDone(); onSelect(opt.provider, opt.model) },
+    )
+}
+
+/** 供应商分组标题（官方组头「BigModel」样式） */
+@Composable
+private fun ModelGroupHeader(provider: String) {
+    Text(
+        providerDisplayName(provider),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+    )
+}
+
+/** 「视觉」徽章（官方 model.capability.vision） */
+@Composable
+private fun VisionBadge() {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Text(
+            stringResource(R.string.model_vision),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+        )
+    }
+}
+
+/** 供应商显示名：已知 id 用官方名称，其余取末段首字母大写 */
+private fun providerDisplayName(provider: String): String {
+    val p = provider.substringAfterLast(':').substringAfterLast('/')
+    return when (p.lowercase()) {
+        "zai-coding-plan", "bigmodel", "zai" -> "BigModel"
+        "deepseek" -> "DeepSeek"
+        "kimi", "moonshot" -> "Kimi"
+        "openrouter" -> "OpenRouter"
+        "mimo" -> "Mimo"
+        "anthropic" -> "Anthropic"
+        "openai" -> "OpenAI"
+        else -> p.replaceFirstChar { it.uppercase() }
     }
 }
 

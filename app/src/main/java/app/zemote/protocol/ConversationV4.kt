@@ -191,6 +191,8 @@ data class ModelOption(
     val provider: String,
     val model: String,
     val label: String = model,
+    /** 是否支持视觉输入（官方 supportsVisionInput，菜单里显示「视觉」徽章） */
+    val vision: Boolean = false,
 )
 
 /** 附件上传结果：ref 用于随 sendText/createSession 发送 */
@@ -1740,7 +1742,12 @@ class ConversationV4Session private constructor(
                         val slash = value.lastIndexOf('/')
                         val provider = if (slash <= 0) value else value.substring(0, slash)
                         val model = if (slash <= 0) value else value.substring(slash + 1)
-                        ModelOption(provider = provider, model = model, label = vm["name"]?.toString()?.ifBlank { null } ?: model)
+                        ModelOption(
+                            provider = provider,
+                            model = model,
+                            label = vm["name"]?.toString()?.ifBlank { null } ?: model,
+                            vision = vm["supportsVisionInput"] == true,
+                        )
                     }
                     log("[v4] prepareWorkspace: parsed ${parsed.size} model options")
                     if (parsed.isNotEmpty()) _modelOptions.value = parsed

@@ -334,5 +334,7 @@
     <string name="ctx_title">上下文容量</string>
     <string name="ctx_hit_rate">平均缓存命中率</string>
     <string name="usage_tool_prompt">工具提示词</string>
+    <string name="model_manage">管理模型</string>
+    <string name="model_vision">视觉</string>
 
 </resources>
