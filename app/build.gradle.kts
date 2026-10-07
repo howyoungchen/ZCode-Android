@@ -12,8 +12,8 @@ android {
         applicationId = "app.zemote"
         minSdk = 28
         targetSdk = 35
-        versionCode = 28
-        versionName = "1.11.2"
+        versionCode = 29
+        versionName = "1.12.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
