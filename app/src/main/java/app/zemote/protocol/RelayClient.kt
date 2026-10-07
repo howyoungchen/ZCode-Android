@@ -168,8 +168,16 @@ class RelayClient(
                     connectInFlight = false
                     onLog?.invoke("[relay] connect failed: ${error.message}")
                     if (gen == socketGen) {
-                        _state.value = RelayState.ERROR
-                        scope.launch { _failures.emit(RelayFailure("connect-failed", error.message)) }
+                        if (wasPaired) {
+                            // 移动网络切换 / NAT 超时等异常断开走这里（没有 onClosed）。
+                            // 旧实现只置 ERROR 不重连，且 poke() 无人调用——一旦发生，
+                            // relay 永久停在 ERROR，所有上层 RPC 各自等满超时，页面又慢又报错。
+                            // 与 onClosed 保持一致：已配对过的连接按退避自动重连。
+                            scheduleReconnect()
+                        } else {
+                            _state.value = RelayState.ERROR
+                            scope.launch { _failures.emit(RelayFailure("connect-failed", error.message)) }
+                        }
                     }
                 }
             })

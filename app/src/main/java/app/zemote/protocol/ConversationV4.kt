@@ -463,34 +463,39 @@ class ConversationV4Session private constructor(
 
     // ────────────────────────── 握手 ──────────────────────────
 
+    /** 握手互斥：openConversation / openSessionsIndex / sendCommand 会并发进入握手 */
+    private val handshakeMutex = Mutex()
+
     /** hello + clientHello 握手（每个 bridge 连接一次） */
     private suspend fun ensureHandshake() {
-        // 快照当前握手版本，防止并发请求互相干扰
-        val gen = handshakeGen
-        if (handshakeDone) return
-        if (!sessionScope.isActive) return  // scope 已取消，不发起握手
-        val hello = call("helloConversationV4", emptyList(), isActiveCheck = { sessionScope.isActive }) as? Map<*, *>
-        if (!sessionScope.isActive) return
-        // 如果握手期间有 rebuildSubscriptions 被触发，停止
-        if (gen != handshakeGen) return
-        connectionId = hello?.get("connectionId")?.toString()
-        // 对齐官方：clientKind 由服务端 hello 返回的 clientMode 决定（desktop 或 web），
-        // appVersion 固定传 'unknown'（与官方一致），避免版本校验拦截
-        val clientMode = hello?.get("clientMode")?.toString()
-        val clientKind = if (clientMode == "desktop-continuous") "desktop" else "web"
-        call(
-            "initializeConversationV4",
-            listOf(mapOf<String, Any>(
-                "kind" to "clientHello",
-                "protocolVersion" to 3L,
-                "clientId" to CLIENT_ID,
-                "clientKind" to clientKind,
-                "appVersion" to "unknown",
-                "capabilities" to mapOf("workspaceHookReviewUi" to true),
-            )),
-        )
-        if (gen != handshakeGen) return  // 重建后跳过
-        handshakeDone = true
+        handshakeMutex.withLock {
+            // 快照当前握手版本，防止并发请求互相干扰
+            val gen = handshakeGen
+            if (handshakeDone) return
+            if (!sessionScope.isActive) return  // scope 已取消，不发起握手
+            val hello = call("helloConversationV4", emptyList(), isActiveCheck = { sessionScope.isActive }) as? Map<*, *>
+            if (!sessionScope.isActive) return
+            // 如果握手期间有 rebuildSubscriptions 被触发，停止
+            if (gen != handshakeGen) return
+            connectionId = hello?.get("connectionId")?.toString()
+            // 对齐官方：clientKind 由服务端 hello 返回的 clientMode 决定（desktop 或 web），
+            // appVersion 固定传 'unknown'（与官方一致），避免版本校验拦截
+            val clientMode = hello?.get("clientMode")?.toString()
+            val clientKind = if (clientMode == "desktop-continuous") "desktop" else "web"
+            call(
+                "initializeConversationV4",
+                listOf(mapOf<String, Any>(
+                    "kind" to "clientHello",
+                    "protocolVersion" to 3L,
+                    "clientId" to CLIENT_ID,
+                    "clientKind" to clientKind,
+                    "appVersion" to "unknown",
+                    "capabilities" to mapOf("workspaceHookReviewUi" to true),
+                )),
+            )
+            if (gen != handshakeGen) return  // 重建后跳过
+            handshakeDone = true
+        }
     }
 
     // ────────────────────────── 订阅生命周期 ──────────────────────────
@@ -527,8 +532,9 @@ class ConversationV4Session private constructor(
         synchronized(stagedFrames) { stagedFrames.clear() }
         synchronized(siStaged) { siStaged.clear() }
         _historyState.value = HistoryState.LOADING
-        // 握手已有缓存，通常 < 100ms；超时设短避免阻塞
-        runCatching { withTimeout(5_000) { ensureHandshake() } }
+        // 已握手时立即返回；新桥首次握手要等桌面端 Initialize 帧（实测 5-10s），
+        // 10s 内没完成也不阻塞界面，订阅/兜底路径各自会再确保握手。
+        runCatching { withTimeout(10_000) { ensureHandshake() } }
             .onFailure { log("[v4] handshake failed: $it") }
         if (!sessionScope.isActive) return
         // 模型/思考档位选项：后台加载，不阻塞界面
@@ -578,7 +584,7 @@ class ConversationV4Session private constructor(
     suspend fun retryHistory(sessionId: String? = _activeSessionId.value) = withContext(Dispatchers.IO) {
         val sid = sessionId ?: return@withContext
         _historyState.value = HistoryState.LOADING
-        runCatching { withTimeout(5_000) { ensureHandshake() } }
+        runCatching { withTimeout(10_000) { ensureHandshake() } }
             .onFailure { log("[v4] retryHistory handshake failed: $it") }
         val ok = runCatching { subscribeConversation(sid) }.getOrDefault(false)
         if (ok) {
@@ -608,6 +614,11 @@ class ConversationV4Session private constructor(
      */
     private suspend fun subscribeConversation(sessionId: String): Boolean {
         if (!sessionScope.isActive) return false
+        // 订阅前必须完成 hello/initialize 握手：桌面端会拒绝未握手连接上的订阅
+        // （实测返回 promise 错误，旧实现把它当超时重试，浪费一整个往返）。
+        runCatching { withTimeout(10_000) { ensureHandshake() } }
+            .onFailure { log("[v4] subscribe: handshake failed: $it") }
+        if (!sessionScope.isActive) return false
         convCancel?.invoke()
         convCancel = null
         val listener = channels.addEventListener(
@@ -634,7 +645,7 @@ class ConversationV4Session private constructor(
                 return false
             }
             if (attempt == 0) {
-                log("[v4] subscribeConversationV4 timed out, retrying once")
+                log("[v4] subscribeConversationV4 failed (attempt 1), retrying once")
                 delay(600)
             }
         }
@@ -795,6 +806,11 @@ class ConversationV4Session private constructor(
                 "snapshot" -> applySnapshot(payload["snapshot"], toSeq)
                 "deltas" -> {
                     val fromSeq = (frame["fromSeq"] as? Number)?.toLong() ?: convSeq
+                    // 官方语义（v4-store reducer）：toSeq <= 本地 seq 的帧是快照/resync 后
+                    // 仍在途的迟到帧，内容已含在快照里，直接跳过；只有 fromSeq 断档才 resync。
+                    // 旧实现缺少这个守卫，每次 resync 后必有一个迟到帧 → 又触发 gap →
+                    // 再 resync，流式期间陷入「全量快照循环」，是页面卡慢的主要来源之一。
+                    if (toSeq <= convSeq) return
                     if (fromSeq != convSeq) {
                         // seq 断层：本端丢帧，强制服务端补发快照
                         resyncConversation()
@@ -1102,7 +1118,7 @@ class ConversationV4Session private constructor(
     suspend fun loadRows(
         sessionId: String,
         limit: Int = 200,
-        beforeRowId: String? = null,
+        beforeRowId: Long? = null,
         timeoutMs: Long = 15_000,
     ): List<ConvRow> = withContext(Dispatchers.IO) {
         if (!sessionScope.isActive) return@withContext _rows.value
@@ -1113,7 +1129,7 @@ class ConversationV4Session private constructor(
     private suspend fun loadRowsLocked(
         sessionId: String,
         limit: Int,
-        beforeRowId: String?,
+        beforeRowId: Long?,
         timeoutMs: Long,
     ): List<ConvRow> {
         if (!sessionScope.isActive) return _rows.value
@@ -1121,9 +1137,16 @@ class ConversationV4Session private constructor(
         // 既省一次 RPC，也避免两条响应互相覆盖。
         if (beforeRowId == null && _rows.value.isNotEmpty()) return _rows.value
 
+        // 桥重建后握手标志已重置：翻页/兜底请求可能赶在握手完成前发出，
+        // 桌面端会以 fault.connection.handshakeRequired 拒绝。这里确保握手完成。
+        runCatching { withTimeout(10_000) { ensureHandshake() } }
+            .onFailure { log("[v4] loadRows: handshake failed: $it") }
+
         val args = scope() + buildMap<String, Any> {
             put("sessionId", sessionId)
             put("limit", limit.toLong())
+            // 官方 schema 要求 number：传字符串会被桌面端 Zod 校验直接拒绝
+            // （expected number, received string），「加载更早消息」从此永远失败。
             if (beforeRowId != null) put("beforeRowId", beforeRowId)
         }
         ZemoteLogger.info("v4", "loadRows sessionId=$sessionId limit=$limit beforeRowId=$beforeRowId")
@@ -1166,8 +1189,7 @@ class ConversationV4Session private constructor(
         ZemoteLogger.info("v4", "loadRows got ${newRows.size} rows raw")
         if (beforeRowId != null) {
             // 分页加载：只保留 rowId < beforeRowId 的新行，追加到已有行的头部
-            val cursor = beforeRowId.toLongOrNull() ?: return _rows.value
-            val older = newRows.filter { it.rowId < cursor }
+            val older = newRows.filter { it.rowId < beforeRowId }
             if (older.isEmpty()) {
                 // 服务端确认没有更早的行了，避免 UI 反复触发加载
                 hasMore = false
@@ -1216,7 +1238,7 @@ class ConversationV4Session private constructor(
         if (!hasOlderHistory) return@withContext false
         log("[v4] loadOlderMessages cursor=$oldestRowId size=${_rows.value.size} hasMore=$hasMore")
         val loaded = runCatching {
-            withTimeout(15_000) { loadRows(sessionId, limit = 100, beforeRowId = oldestRowId.toString()) }
+            withTimeout(15_000) { loadRows(sessionId, limit = 100, beforeRowId = oldestRowId) }
         }.getOrNull()
         loaded != null && _rows.value.isNotEmpty()
     }
@@ -1741,6 +1763,8 @@ class ConversationV4Session private constructor(
                 }
                 "deltas" -> {
                     val fromSeq = (frame["fromSeq"] as? Number)?.toLong() ?: siSeq
+                    // 与对话流同样官方语义：迟到帧（toSeq <= 本地）跳过，真断档才 resync
+                    if (toSeq <= siSeq) return
                     if (fromSeq != siSeq) {
                         resyncSessionsIndex()
                         return
@@ -2006,8 +2030,21 @@ class ConversationV4Session private constructor(
         args: List<Any?>,
         timeoutMs: Long = 30_000,
         isActiveCheck: () -> Boolean = { sessionScope.isActive },
-    ): Any? =
-        channels.call(ChannelClient.Channel.ZCODE_AGENT, method, args, timeoutMs, isActiveCheck)
+    ): Any? {
+        return try {
+            channels.call(ChannelClient.Channel.ZCODE_AGENT, method, args, timeoutMs, isActiveCheck)
+        } catch (e: ChannelRpcError) {
+            // 桥重建（swapBridge）后，本端握手标志可能还残留在已被替换的旧连接上，
+            // 新连接上的调用会被桌面端以 fault.connection.handshakeRequired 拒绝。
+            // 这里把该错误视为「握手已失效」：重置标志、重新握手后重试一次。
+            // 冷启动首开会话必经桥重建，没有这层自愈会一直停在「无法获取会话」。
+            if (e.message?.contains("handshakeRequired") != true) throw e
+            log("[v4] $method rejected (handshakeRequired), re-handshaking and retrying")
+            handshakeDone = false
+            runCatching { ensureHandshake() }.onFailure { throw e }
+            channels.call(ChannelClient.Channel.ZCODE_AGENT, method, args, timeoutMs, isActiveCheck)
+        }
+    }
 
     fun dispose() {
         clearPendingDeltas()

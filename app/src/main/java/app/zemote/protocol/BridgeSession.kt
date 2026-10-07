@@ -86,8 +86,10 @@ class BridgeSession(
         _transport.onMessage = { frame -> _channels.handleMessage(frame) }
         // Start fresh listener for the new bridge session
         startRelayListener()
-        // 通知拥有此 bridge 的会话：bridge 已更换，需要重置内部状态（resyncing 等）
-        // 由调用方负责：恢复后打开会话时会触发 rebuildSubscriptions
+        // 通知持有此桥的 V4 会话：旧通道已整体替换，需要重新握手并重订阅。
+        // 旧实现只有 collector 没有触发方，断线恢复后会话永远停在死通道上
+        // （握手标志残留为已完成，新通道上的调用被桌面端拒绝），历史从此拉不到。
+        recovered.value += 1
     }
 
     val channelsClient: ChannelClient get() = _channels

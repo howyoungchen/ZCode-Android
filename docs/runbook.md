@@ -67,6 +67,12 @@ python tools/check_16kb_alignment.py apk <app.apk>   # 检查原生库 16KB 页�
 | 崩溃报告 | `filesDir/crash_report.txt` | 崩溃后下次启动自动展示；`adb shell run-as app.zemote cat files/crash_report.txt`（debug 包） |
 | 系统日志 | logcat | `adb logcat --pid=$(adb shell pidof -s app.zemote)` |
 
+调试日志自 2026-10-07 起**同步镜像到 logcat**（tag 前缀 `Zemote/`），实机排障直接：
+
+```bash
+adb logcat -s Zemote/protocol:* Zemote/v4:* Zemote/ipc:*
+```
+
 调试日志的关键 tag / 关键字（grep 什么判断什么）：
 
 | 关键字 | 含义 |
@@ -90,6 +96,10 @@ python tools/check_16kb_alignment.py apk <app.apk>   # 检查原生库 16KB 页�
 | 卡在连接中，日志反复 `reconnect in` | 桌面端不在线 / Relay 不可达 / 协议变更 | 看日志 `[relay]` 具体阶段；官方 Web 远程页能否正常连 | 桌面端重开远程控制；若官方页正常而 App 失败 → 协议变更，按 §0 第一条处理 |
 | `kicked by another client` 反复出现 | 同一设备被多个客户端（如浏览器页 + App）争抢 | 日志 grep `kicked` | 关掉其它客户端；App 自带 1s→8s 退避抢回（RelayClient） |
 | 会话一直转圈加载不出来 | 历史加载软失败 / 订阅后快照未到 / bridge 被淘汰 | 日志 grep `[v4]`、`[bridge]` | v1.9.2 已修三处根因（CHANGELOG）；仍复现则收集日志开 Issue |
+| 冷启动首开会话必现「无法获取会话」 | 桌面端对上一进程遗留桥报 `rpc-transport-fault` → 桥重建后本端握手标志残留，新连接上的调用被桌面端以 `fault.connection.handshakeRequired` 拒绝 | `adb logcat -s Zemote/protocol` 抓 `handshakeRequired` / `re-handshaking` | 2026-10-07 已修：`call()` 收到 handshakeRequired 自动重握手重试；`swapBridge` 触发 `recovered` 重建订阅 |
+| 「加载更早消息」永远失败 | `conversationRowsRangeV4` 的 `beforeRowId` 发了字符串，桌面端 Zod 校验要 number | 日志 grep `expected number, received string` | 2026-10-07 已修：游标改 Long；日志若再现即为回归 |
+| 流式期间每隔几十秒卡一下、日志反复 `resync (gap)` | 快照/resync 后迟到的旧帧（toSeq≤本地 seq）被误判为断档，触发全量快照循环 | 日志 grep `resync (gap)` 看频率 | 2026-10-07 已修：对齐官方 v4-store 语义，迟到帧直接跳过 |
+| 断网（WiFi↔4G 切换）后 App 再也收不到数据 | `onFailure` 只置 ERROR 不重连，`poke()` 无调用方，永久卡死 | 日志看 `[relay] connect failed` 后是否有 `reconnect in` | 2026-10-07 已修：已配对过的连接 onFailure 走退避自动重连，实测 2 秒内全链路自愈 |
 | 聊天页卡顿 | 高频状态订阅重组 / 时间线 lambda 不稳定 | 复现机型 +日志 | v1.9.2 已做重组域拆分（CHANGELOG），新案例开 Issue |
 | App 启动即崩溃页 | 上次崩溃残留报告 | 读崩溃报告内容 | 页面「重启」即清除；按堆栈定位 |
 | 构建报 SDK/版本错误 | JDK 或 SDK 版本不对 | `java -version`、检查 `local.properties` | 装 JDK 17 / SDK 35 |

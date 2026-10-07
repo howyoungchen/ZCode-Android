@@ -177,6 +177,10 @@ class ChannelClient(
 
     fun dispose() {
         scope.cancel()
+        // 先让在途请求立刻失败再清表：桥被 swapBridge 整体替换时会走到这里，
+        // 若只是清表，挂起的 completer 会一直等到自己的 withTimeout 到期
+        // （订阅最长 45s），期间还可能在换栈后重试引发重复订阅报错。
+        promiseHandlers.values.forEach { it.cancel() }
         promiseHandlers.clear()
         eventHandlers.clear()
     }

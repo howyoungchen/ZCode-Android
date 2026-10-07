@@ -90,6 +90,18 @@ object ZemoteLogger {
         } else {
             trimmed
         }
+        // 同步镜像到 logcat：ZemoteLogger 本体只在进程内存里，adb 排障时抓不到。
+        // 复制到 logcat 后 `adb logcat -s Zemote` 即可实时看协议层日志。
+        android.util.Log.println(
+            when (level) {
+                Level.DEBUG -> android.util.Log.DEBUG
+                Level.INFO -> android.util.Log.INFO
+                Level.WARN -> android.util.Log.WARN
+                Level.ERROR -> android.util.Log.ERROR
+            },
+            "Zemote/$tag",
+            text,
+        )
         val entry = LogEntry(
             id = _nextId.getAndIncrement(),
             level = level,

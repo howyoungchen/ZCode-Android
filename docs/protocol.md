@@ -56,7 +56,7 @@ scheme 仅接受 https / wss。Relay 地址由 URL 推导：`wss://<host>[:<port
 | matched | — | 配对成功 → 启动心跳、冲刷出站队列 |
 | error | code, message | code="KICKED"（被其它客户端抢占）→ 关闭后按 1s→2s→4s→8s 退避抢回 |
 
-**心跳与断线**：每 10s 发 pair_status_query，ack 超过 30s 先探测再重连；静默 25s 判死链（poke）。意外断线按 1s→2s→4s→8s→16s（封顶 15s）指数退避重连。
+**心跳与断线**：每 10s 发 pair_status_query，ack 超过 30s 先探测再重连；静默 25s 判死链（poke）。意外断线（onClosed 与 onFailure 均算）按 1s→2s→4s→8s→16s（封顶 15s）指数退避重连；从未配对成功的 onFailure 不自动重连，置 ERROR 交由 UI 提示重试。
 
 **WebSocket 关闭码映射**：4004 session-not-found、4009 session-conflict、4010 desktop-disconnected（触发重连）、4011 session-expired、4012 workspace-closed、4013 invalid-mobile-connection。
 
@@ -125,7 +125,7 @@ proof = base64url_nopad( HMAC-SHA256( key = utf8(passHash),
 
 请求帧：`[100, reqId, channelName, method]` + `args`（两个相邻编码值）。
 通道：`file` `system` `terminal` `git` `git-checkpoint` `setting` `credential` `zcode-agent` `zcode-session` `zcode-task`。
-开桥后须等到 Initialize（200）才能调用（30s 超时）；请求默认 30s 超时。
+开桥后须等到 Initialize（200）才能调用（30s 超时）；请求默认 30s 超时。通道栈被整体替换（swapBridge）时，在途 promise 立即取消，不等各自超时。
 
 ## 8. Conversation V4（ConversationV4.kt，通道 zcode-agent）
 
@@ -135,6 +135,8 @@ proof = base64url_nopad( HMAC-SHA256( key = utf8(passHash),
 2. `initializeConversationV4([{kind:"clientHello", protocolVersion:3, clientId, clientKind, appVersion:"unknown", capabilities:{workspaceHookReviewUi:true}}])`。
    clientKind 由 clientMode 推导：`"desktop-continuous"→"desktop"`，否则 `"web"`。
    （常量 `PROTOCOL_APP_VERSION="3.6.5"` 已定义但当前未引用——注释说明发 App 自身版本号会导致能力协商失败。）
+   握手带互斥锁：openConversation / openSessionsIndex / sendCommand 并发进入时串行完成；
+   未握手的连接上发订阅会被桌面端直接拒绝（promise 错误）。
 
 ### 8.2 订阅与事件流
 
@@ -148,7 +150,7 @@ proof = base64url_nopad( HMAC-SHA256( key = utf8(passHash),
 **逻辑帧**：`{subscriptionId, fromSeq?, toSeq, payload}`，`payload.kind`：
 
 - `snapshot`：全量快照（rows 窗口、config、usage、queue、control、revision、logEpoch）。
-- `deltas`：`fromSeq` 与本地 seq 不符 → 断层，强制 resync；否则按序应用。
+- `deltas`：**toSeq ≤ 本地 seq 的迟到帧直接跳过**（快照/resync 后仍在途的旧帧，官方 v4-store 同语义）；fromSeq 与本地 seq 不符（且非迟到）→ 断层，强制 resync；否则按序应用。
 
 **delta op 清单**：会话 `row.appended` / `row.upserted` / `row.removed` / `row.delta`（流式追加，60ms 批量提交）/ `state.updated`（config/usage/queue 等补丁）；会话列表 `session.upserted` / `session.removed`。
 
@@ -180,7 +182,7 @@ envelope = { commandId:uuid, clientId, sessionId?, baseRevision?, type, payload,
 
 `conversationRowsRangeV4(scope + {sessionId, limit:200, beforeRowId?})` →
 `{rows:[…], hasMore, atLogEpoch, totalCount}`（兼容 `{rows:{rows…}}` 嵌套形状）。
-翻页游标 = **已加载最早行的 rowId**；`atLogEpoch` 与当前快照不一致的页整体丢弃（旧纪元数据）。
+**beforeRowId 必须是 number**（官方 Zod 校验，字符串直接报错）。翻页游标 = **已加载最早行的 rowId**；`atLogEpoch` 与当前快照不一致的页整体丢弃（旧纪元数据）。
 
 ### 8.6 附件
 
@@ -195,7 +197,7 @@ envelope = { commandId:uuid, clientId, sessionId?, baseRevision?, type, payload,
 ### 8.7 恢复与 resync
 
 - 断层 / 看门狗（10s 巡检、静默 20s 且正在流式 → 触发）：`resyncConversationV4(scope + {subscriptionId, forceSnapshot:true, base:{logEpoch, seq}})`；会话列表对应 `resyncSessionsIndexV4`（另带 runtimePolicy:"existing-only"）。
-- 桥恢复：`workspace-bridge-open`（新 bridgeSessionId + recoveryId）→ `swapBridge` 重建栈 → 重新握手 + 只重订阅不清状态。
+- 桥恢复：`workspace-bridge-open`（新 bridgeSessionId + recoveryId）→ `swapBridge` 重建栈（并递增 `recovered` 通知会话层）→ 重新握手 + 只重订阅不清状态。
 
 ### 8.8 模型选项（通道 zcode-task）
 
