@@ -49,6 +49,13 @@ private data class ChangelogEntry(
 
 private val Changelogs = listOf(
     ChangelogEntry(
+        "v1.13.6", "2026-10-09",
+        listOf(
+            "「展开已更改文件」全链路实测通过：逐文件明细与撤销预检三分组均渲染真实数据",
+            "remoteSessionId 实发验证通过（带与不带均可），协议文档更正旧结论",
+        ),
+    ),
+    ChangelogEntry(
         "v1.13.5", "2026-10-09",
         listOf(
             "文件更改明细取数修正：target 必须是回合头行，revision 基准对齐运行时校验",

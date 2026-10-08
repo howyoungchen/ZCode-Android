@@ -205,9 +205,14 @@ baseRevision, baseLogEpoch})` → `{files, additions, deletions, items:[{path, a
 ② `baseRevision`/`baseLogEpoch` 与运行时快照**逐值相等**（不等报 proto.staleRevision /
 proto.staleLogEpoch，本地基准要取 revision 与 ackedRevisions 的最大值）；
 ③ 撤销预检还要求行上带 `fileChanges` 且 `actions.canRewindFiles`。
-当前桌面端运行时的 host.getConversationFileChanges 对查询不返回数据（错误或挂起），
-官方移动端因此也不在此环境展示逐文件明细；摘要退回 turnHeader 行上的 fileChanges 汇总，
-明细/预检对话框走空态与错误分支。
+实测（v1.13.6）：满足上述约束后 `conversationFileChangesV4` 正常返回真实数据
+（`{files, additions, deletions, items:[{path, additions, deletions, writeCount, …}]}`，
+如某回合返回 6 文件 +32 -4 与逐文件路径）；带不带 `remoteSessionId` 均可（桌面端包装层
+容忍额外键，`.strict()` 校验在包装层之后）。撤销预检同理返回
+`{canApply, safeFiles[], unsafeFiles[], ignoredFiles[]}`，且仅当目标 turnHeader 行带
+`fileChanges` 且 `actions.canRewindFiles` 时可预检（实测三分组：可安全撤销 2 /
+不能安全撤销 1 / 已忽略 3，canApply=false 时前端禁用确认）。摘要仍可退回行内
+fileChanges 汇总兜底。
 
 **Git 通道（方法名即 RPC 名，首个参数 `{workspacePath, workspaceIdentity?}`）**：
 `getRepositorySummary`（分支/脏状态）、`getLocalBranches`、`switchBranch({targetBranchName})`、

@@ -1693,16 +1693,16 @@ class ConversationV4Session private constructor(
         var res: Map<*, *>? = null
         // 运行时对 baseRevision 做逐值校验；本地追踪可能落后/超前，
         // stale 时小范围递增探测（只读查询，无副作用）
-        for (attempt in 0..4) {
+        for (attempt in 0..3) {
             val args = sessionArgs(target).toMutableMap()
             if (attempt > 0) {
-                val bumped = ((args["baseRevision"] as? Long) ?: 0L) + attempt
-                args["baseRevision"] = bumped
+                // staleRevision 时小范围递增探测（运行时对 baseRevision 逐值校验）
+                args["baseRevision"] = ((args["baseRevision"] as? Long) ?: 0L) + attempt
             }
             val raw = runCatching {
                 channels.call(
                     ChannelClient.Channel.ZCODE_AGENT, "conversationFileChangesV4",
-                    listOf(args), timeoutMs = 20_000,
+                    listOf(args), timeoutMs = 15_000,
                     isActiveCheck = { sessionScope.isActive },
                 )
             }.getOrNull()
