@@ -148,6 +148,56 @@ data class FileChanges(
     val state: String? = null,   // "active" | "reverted"
 )
 
+/** 文件更改明细（官方 conversationFileChangesV4） */
+data class FileChangesDetail(
+    val files: Int,
+    val additions: Int,
+    val deletions: Int,
+    val items: List<FileChangeItem>,
+)
+
+/** 单个文件的更改明细 */
+data class FileChangeItem(
+    val path: String,
+    val additions: Int,
+    val deletions: Int,
+)
+
+/** 撤销预检结果（官方 conversationFileRewindPreviewV4） */
+data class RewindPreview(
+    val canApply: Boolean,
+    val safeFiles: List<RewindFile>,
+    val unsafeFiles: List<RewindFile>,
+    val ignoredFiles: List<RewindFile>,
+)
+
+/** 预检中的单个文件 */
+data class RewindFile(
+    val path: String,
+    val operationCount: Int,
+    val reason: String? = null,
+)
+
+/** 待办项（官方 todos：chat.statusPanel.todo「进程」数据源） */
+data class TodoItem(
+    val content: String,
+    val status: String,      // pending | in_progress | completed
+    val priority: String?,   // high | medium | low
+)
+
+/** 套餐额度快照（官方 usageStatsService.getEntitlementSnapshot） */
+data class EntitlementSnapshot(
+    val fiveHour: QuotaLimit?,
+    val weekly: QuotaLimit?,
+    val mcp: QuotaLimit?,
+)
+
+/** 单项额度：remainingPercent 为剩余额度百分比 */
+data class QuotaLimit(
+    val remainingPercent: Double?,
+    val nextResetTime: String?,
+)
+
 object ConvKinds {
     const val TURN_HEADER = "turnHeader"
     const val USER_INPUT = "userInput"
@@ -350,6 +400,10 @@ class ConversationV4Session private constructor(
     /** 后台运行中的任务（bash / subagent） */
     private val _backgroundWorks = MutableStateFlow<List<BackgroundWork>>(emptyList())
     val backgroundWorks: StateFlow<List<BackgroundWork>> = _backgroundWorks.asStateFlow()
+
+    /** 待办清单（官方 todos → 状态侧栏「进程」） */
+    private val _todos = MutableStateFlow<List<TodoItem>>(emptyList())
+    val todos: StateFlow<List<TodoItem>> = _todos.asStateFlow()
 
     /**
      * 历史加载状态。UI 用它区分「正在加载 / 已就绪 / 确实为空 / 加载失败」，
@@ -876,6 +930,7 @@ class ConversationV4Session private constructor(
         (snap["queue"] as? Map<*, *>)?.let(::mergeQueue)
         (snap["pendingInteractions"] as? List<*>)?.let(::mergeInteractions)
         (snap["backgroundWorks"] as? List<*>)?.let(::mergeBackgroundWorks)
+        (snap["todos"] as? List<*>)?.let(::mergeTodos)
         val rowsObj = snap["rows"] as? Map<*, *>
         if (rowsObj != null) {
             val window = (rowsObj["window"] as? List<*>)
@@ -978,6 +1033,7 @@ class ConversationV4Session private constructor(
                     (patch["queue"] as? Map<*, *>)?.let(::mergeQueue)
                     (patch["pendingInteractions"] as? List<*>)?.let(::mergeInteractions)
                     (patch["backgroundWorks"] as? List<*>)?.let(::mergeBackgroundWorks)
+                    (patch["todos"] as? List<*>)?.let(::mergeTodos)
                     (patch["revision"] as? Number)?.toLong()?.let { revision = it }
                     if (patch.containsKey("working")) {
                         _agentWorking.value = patch["working"] == true
@@ -1607,6 +1663,150 @@ class ConversationV4Session private constructor(
         }.onFailure { log("[v4] renameSession failed: $it") }.getOrDefault(false)
     }
 
+    /** 文件更改明细（官方 conversationFileChangesV4）：撤销摘要展开用 */
+    suspend fun fileChangesDetail(row: ConvRow): FileChangesDetail? = withContext(Dispatchers.IO) {
+        val target = rowTarget(row) ?: return@withContext null
+        val res = runCatching {
+            channels.call(
+                ChannelClient.Channel.ZCODE_SESSION, "conversationFileChangesV4",
+                listOf(sessionArgs(target)), timeoutMs = 20_000,
+                isActiveCheck = { sessionScope.isActive },
+            )
+        }.getOrNull() as? Map<*, *> ?: return@withContext null
+        val items = (res["items"] as? List<*>).orEmpty().mapNotNull { raw ->
+            val m = raw as? Map<*, *> ?: return@mapNotNull null
+            val path = m["path"]?.toString() ?: return@mapNotNull null
+            FileChangeItem(
+                path = path,
+                additions = (m["additions"] as? Number)?.toInt() ?: 0,
+                deletions = (m["deletions"] as? Number)?.toInt() ?: 0,
+            )
+        }
+        FileChangesDetail(
+            files = (res["files"] as? Number)?.toInt() ?: items.size,
+            additions = (res["additions"] as? Number)?.toInt() ?: items.sumOf { it.additions },
+            deletions = (res["deletions"] as? Number)?.toInt() ?: items.sumOf { it.deletions },
+            items = items,
+        )
+    }
+
+    /** 撤销预检（官方 conversationFileRewindPreviewV4）：安全 / 不可安全 / 已忽略分组 */
+    suspend fun fileRewindPreview(row: ConvRow): RewindPreview? = withContext(Dispatchers.IO) {
+        val target = rowTarget(row) ?: return@withContext null
+        val res = runCatching {
+            channels.call(
+                ChannelClient.Channel.ZCODE_SESSION, "conversationFileRewindPreviewV4",
+                listOf(sessionArgs(target)), timeoutMs = 30_000,
+                isActiveCheck = { sessionScope.isActive },
+            )
+        }.getOrNull() as? Map<*, *> ?: return@withContext null
+        fun group(key: String): List<RewindFile> =
+            (res[key] as? List<*>).orEmpty().mapNotNull { raw ->
+                val m = raw as? Map<*, *> ?: return@mapNotNull null
+                val path = m["path"]?.toString() ?: return@mapNotNull null
+                RewindFile(
+                    path = path,
+                    operationCount = (m["operationCount"] as? Number)?.toInt() ?: 1,
+                    reason = m["reason"]?.toString(),
+                )
+            }
+        RewindPreview(
+            canApply = res["canApply"] == true,
+            safeFiles = group("safeFiles"),
+            unsafeFiles = group("unsafeFiles"),
+            ignoredFiles = group("ignoredFiles"),
+        )
+    }
+
+    private fun rowTarget(row: ConvRow): Map<String, Any?>? {
+        val entityId = row.entityId ?: return null
+        return mapOf("rowId" to row.rowId, "entityId" to entityId)
+    }
+
+    private fun sessionArgs(target: Map<String, Any?>): Map<String, Any?> = scope() + mapOf(
+        "sessionId" to _activeSessionId.value,
+        "target" to target,
+        "baseRevision" to revision,
+        "baseLogEpoch" to convLogEpoch,
+    )
+
+    // ── 任务列表操作（官方 zcodeTaskService：置顶 / 归档 / 标记未读） ──
+
+    private suspend fun taskCommand(method: String, taskId: String, extra: Map<String, Any?> = emptyMap()): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                channels.call(
+                    ChannelClient.Channel.ZCODE_TASK, method,
+                    listOf(scope() + mapOf("taskId" to taskId) + extra),
+                    timeoutMs = 15_000, isActiveCheck = { sessionScope.isActive },
+                )
+                true
+            }.onFailure { log("[v4] $method failed: $it") }.getOrDefault(false)
+        }
+
+    /** 置顶 / 取消置顶任务（官方 setTaskPinned） */
+    suspend fun setTaskPinned(taskId: String, pinned: Boolean): Boolean =
+        taskCommand("setTaskPinned", taskId, mapOf("pinned" to pinned))
+
+    /** 归档任务（官方 archiveTask） */
+    suspend fun archiveTask(taskId: String): Boolean =
+        taskCommand("archiveTask", taskId)
+
+    /** 标记任务未读（官方 setTaskUnread） */
+    suspend fun setTaskUnread(taskId: String, unread: Boolean): Boolean =
+        taskCommand("setTaskUnread", taskId, mapOf("unread" to unread))
+
+    // ── 套餐额度（官方 usageStatsService.getEntitlementSnapshot） ──
+
+    /**
+     * 拉取额度快照：5 小时 / 每周 / ZCode MCP 三项。
+     * 取不到（未登录套餐 / 旧版桌面端）返回 null，界面隐藏该区块。
+     */
+    suspend fun entitlementSnapshot(): EntitlementSnapshot? = withContext(Dispatchers.IO) {
+        val res = runCatching {
+            channels.call(
+                ChannelClient.Channel.USAGE_STATS, "getEntitlementSnapshot",
+                listOf(mapOf(
+                    "includeSubscription" to true,
+                    "allowEnvApiKey" to false,
+                    "organizationId" to null,
+                    "projectId" to null,
+                )),
+                timeoutMs = 15_000, isActiveCheck = { sessionScope.isActive },
+            )
+        }.getOrNull() as? Map<*, *> ?: return@withContext null
+        val limits = ((res["quota"] as? Map<*, *>)?.get("limits") as? List<*>)
+            ?: (res["limits"] as? List<*>)
+            ?: return@withContext null
+        fun pick(type: String, unit: Int, number: Int?): Map<*, *>? {
+            for (raw in limits) {
+                val m = raw as? Map<*, *> ?: continue
+                if (m["type"]?.toString() != type) continue
+                if ((m["unit"] as? Number)?.toInt() != unit) continue
+                if (number != null && (m["number"] as? Number)?.toInt() != number) continue
+                return m
+            }
+            return null
+        }
+        fun quota(m: Map<*, *>?): QuotaLimit? {
+            if (m == null) return null
+            val pct = (m["percentage"] as? Number)?.toDouble()
+            val remaining = (m["remaining"] as? Number)?.toDouble()
+            val total = (m["number"] as? Number)?.toDouble()
+            val remainingPercent = when {
+                pct != null -> (100.0 - pct).coerceIn(0.0, 100.0)
+                remaining != null && total != null && total > 0 -> (remaining / total * 100).coerceIn(0.0, 100.0)
+                else -> null
+            }
+            return QuotaLimit(remainingPercent, m["nextResetTime"]?.toString())
+        }
+        EntitlementSnapshot(
+            fiveHour = quota(pick("TOKENS_LIMIT", 3, 5)),
+            weekly = quota(pick("TOKENS_LIMIT", 6, null)),
+            mcp = quota(pick("TIME_LIMIT", 5, 1)),
+        )
+    }
+
     private suspend fun rowCommand(type: String, row: ConvRow, payload: Map<String, Any?>): Boolean =
         withContext(Dispatchers.IO) {
             val sessionId = _activeSessionId.value ?: return@withContext false
@@ -1956,6 +2156,18 @@ class ConversationV4Session private constructor(
     }
 
     /** 解析 pendingInteractions：权限审批 / 用户输入 / 计划确认 */
+    private fun mergeTodos(list: List<*>) {
+        _todos.value = list.mapNotNull { raw ->
+            val m = raw as? Map<*, *> ?: return@mapNotNull null
+            val content = m["content"]?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            TodoItem(
+                content = content,
+                status = m["status"]?.toString() ?: "pending",
+                priority = m["priority"]?.toString(),
+            )
+        }
+    }
+
     private fun mergeInteractions(list: List<*>) {
         _pendingInteractions.value = list.mapNotNull { raw ->
             val m = raw as? Map<*, *> ?: return@mapNotNull null

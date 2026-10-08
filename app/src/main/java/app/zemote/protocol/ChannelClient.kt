@@ -33,6 +33,7 @@ class ChannelClient(
         FILE("file"), SYSTEM("system"), TERMINAL("terminal"), GIT("git"),
         GIT_CHECKPOINT("git-checkpoint"), SETTING("setting"), CREDENTIAL("credential"),
         ZCODE_AGENT("zcode-agent"), ZCODE_SESSION("zcode-session"), ZCODE_TASK("zcode-task"),
+        USAGE_STATS("usage-stats"),
     }
 
     private val requestIdSeq = java.util.concurrent.atomic.AtomicInteger(0)
