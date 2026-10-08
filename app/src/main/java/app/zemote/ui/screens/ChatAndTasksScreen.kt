@@ -3661,10 +3661,10 @@ private fun ModelGroupHeader(provider: String) {
     }
 }
 
-/** 套餐徽章（官方 labelBadge「个人」）：coding-plan / start-plan 供应商显示 */
+/** 套餐徽章（官方 labelBadge「个人」）：只给 Z.ai / BigModel 套餐系供应商 */
 private fun providerHasPlanBadge(provider: String): Boolean {
-    val p = provider.lowercase()
-    return "coding-plan" in p || "coding_plan" in p || "start-plan" in p || "start_plan" in p
+    val name = providerDisplayName(provider)
+    return name == "BigModel" || name == "Z.ai"
 }
 
 /** 「个人」套餐徽章 */
