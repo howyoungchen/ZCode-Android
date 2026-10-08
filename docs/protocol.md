@@ -200,8 +200,14 @@ baseRevision, baseLogEpoch})` → `{files, additions, deletions, items:[{path, a
 （「N 个文件已更改」展开明细）；`conversationFileRewindPreviewV4(同参)` →
 `{canApply, safeFiles[], unsafeFiles[], ignoredFiles[]}`（撤销前安全预检，条目
 `{path, operationCount, reason?}`）；真正撤销仍走命令 `applyFileRewind`。
-注意：桌面端 agent 运行时可能回 `guard.actionUnavailable`（旧回合/运行时不支持追踪），
-此时摘要退回 turnHeader 行上的 fileChanges 汇总，明细/预检对话框走空态与错误分支。
+注意三条硬约束（均来自桌面端运行时源码 ConversationV4Gateway）：
+① target 必须是 **turnHeader 行**（kind 校验，传 assistantText 行报 guard.actionUnavailable）；
+② `baseRevision`/`baseLogEpoch` 与运行时快照**逐值相等**（不等报 proto.staleRevision /
+proto.staleLogEpoch，本地基准要取 revision 与 ackedRevisions 的最大值）；
+③ 撤销预检还要求行上带 `fileChanges` 且 `actions.canRewindFiles`。
+当前桌面端运行时的 host.getConversationFileChanges 对查询不返回数据（错误或挂起），
+官方移动端因此也不在此环境展示逐文件明细；摘要退回 turnHeader 行上的 fileChanges 汇总，
+明细/预检对话框走空态与错误分支。
 
 **Git 通道（方法名即 RPC 名，首个参数 `{workspacePath, workspaceIdentity?}`）**：
 `getRepositorySummary`（分支/脏状态）、`getLocalBranches`、`switchBranch({targetBranchName})`、

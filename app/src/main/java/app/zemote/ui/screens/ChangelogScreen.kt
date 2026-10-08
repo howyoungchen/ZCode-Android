@@ -49,6 +49,13 @@ private data class ChangelogEntry(
 
 private val Changelogs = listOf(
     ChangelogEntry(
+        "v1.13.5", "2026-10-09",
+        listOf(
+            "文件更改明细取数修正：target 必须是回合头行，revision 基准对齐运行时校验",
+            "取数移出消息条目作用域防请求被掐断；运行时不支持处如实记录为环境限制",
+        ),
+    ),
+    ChangelogEntry(
         "v1.13.4", "2026-10-09",
         listOf(
             "仪表盘「整理任务」补齐「按工作区 / 按时间线」分组方式",

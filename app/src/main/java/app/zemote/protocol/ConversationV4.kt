@@ -1690,13 +1690,27 @@ class ConversationV4Session private constructor(
     /** 文件更改明细（官方 conversationFileChangesV4）：撤销摘要展开用 */
     suspend fun fileChangesDetail(row: ConvRow): FileChangesDetail? = withContext(Dispatchers.IO) {
         val target = rowTarget(row) ?: return@withContext null
-        val res = runCatching {
-            channels.call(
-                ChannelClient.Channel.ZCODE_AGENT, "conversationFileChangesV4",
-                listOf(sessionArgs(target)), timeoutMs = 20_000,
-                isActiveCheck = { sessionScope.isActive },
-            )
-        }.getOrNull() as? Map<*, *> ?: return@withContext null
+        var res: Map<*, *>? = null
+        // 运行时对 baseRevision 做逐值校验；本地追踪可能落后/超前，
+        // stale 时小范围递增探测（只读查询，无副作用）
+        for (attempt in 0..4) {
+            val args = sessionArgs(target).toMutableMap()
+            if (attempt > 0) {
+                val bumped = ((args["baseRevision"] as? Long) ?: 0L) + attempt
+                args["baseRevision"] = bumped
+            }
+            val raw = runCatching {
+                channels.call(
+                    ChannelClient.Channel.ZCODE_AGENT, "conversationFileChangesV4",
+                    listOf(args), timeoutMs = 20_000,
+                    isActiveCheck = { sessionScope.isActive },
+                )
+            }.getOrNull()
+            res = raw as? Map<*, *>
+            if (res != null) break
+            kotlinx.coroutines.delay(300)
+        }
+        if (res == null) return@withContext null
         val items = (res["items"] as? List<*>).orEmpty().mapNotNull { raw ->
             val m = raw as? Map<*, *> ?: return@mapNotNull null
             val path = m["path"]?.toString() ?: return@mapNotNull null
@@ -1747,12 +1761,18 @@ class ConversationV4Session private constructor(
         return mapOf("rowId" to row.rowId, "entityId" to entityId)
     }
 
-    private fun sessionArgs(target: Map<String, Any?>): Map<String, Any?> = scope() + mapOf(
-        "sessionId" to _activeSessionId.value,
-        "target" to target,
-        "baseRevision" to revision,
-        "baseLogEpoch" to convLogEpoch,
-    )
+    private fun sessionArgs(target: Map<String, Any?>): Map<String, Any?> {
+        val sid = _activeSessionId.value
+        // 运行时快照 revision 对查询类 RPC 做逐值校验（staleRevision）；
+        // 命令被接受后本地基准推进在 ackedRevisions，取两者最大才追得上
+        val baseRevision = maxOf(revision, ackedRevisions[sid] ?: 0L)
+        return scope() + mapOf(
+            "sessionId" to sid,
+            "target" to target,
+            "baseRevision" to baseRevision,
+            "baseLogEpoch" to convLogEpoch,
+        )
+    }
 
     // ── 任务列表操作（官方 zcodeTaskService：置顶 / 归档 / 标记未读） ──
 

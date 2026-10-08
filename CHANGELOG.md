@@ -1,5 +1,17 @@
 # 更新日志
 
+## v1.13.5 — 2026-10-09
+
+文件更改明细取数对齐桌面端校验契约（含两处真修复）。
+
+- target 改为 **turnHeader 行**：运行时 resolveQueryRowTarget 对 kind 做硬校验，
+  传 assistantText 行一律被 guard.actionUnavailable 拒绝（对照运行时源码定位）
+- baseRevision 基准取 `revision` 与 `ackedRevisions` 的最大值（命令被接受后运行时 +1，
+  旧值触发 proto.staleRevision），stale 时小范围自适应重试
+- 取数移出消息条目作用域（条目滑出组合会掐断请求）：改由时间线级作用域 + 结果缓存
+- 桌面端运行时的 host.getConversationFileChanges 当前不返回数据（错误/挂起），
+  逐文件明细与安全/不安全分组在该环境记为运行时限制；官方移动端同样不展示
+
 ## v1.13.4 — 2026-10-09
 
 仪表盘「整理任务」补齐官方的分组方式。
