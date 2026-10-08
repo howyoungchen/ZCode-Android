@@ -161,6 +161,7 @@ fun ChatScreen(
     onBack: () -> Unit,
     onOpenSubagent: (String, String, String) -> Unit = { _, _, _ -> },
     onOpenAISettings: () -> Unit = {},
+    onOpenFeedback: () -> Unit = {},
     readOnly: Boolean = false,
     themeManager: ThemeManager? = null,
 ) {
@@ -316,6 +317,7 @@ fun ChatScreen(
             workspaceKey = workspaceKey,
             enabled = repo != null && error == null,
             onTogglePanel = { showTaskPanel = !showTaskPanel },
+            onOpenFeedback = onOpenFeedback,
         )
 
         val errorMessage = error
@@ -509,6 +511,7 @@ private fun TaskTabRow(
     workspaceKey: String,
     enabled: Boolean,
     onTogglePanel: () -> Unit,
+    onOpenFeedback: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -616,6 +619,11 @@ private fun TaskTabRow(
                         moreOpen = false
                         if (activeId != null) copyToClipboard(ctx, activeId)
                     },
+                )
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.task_feedback), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = { moreOpen = false; onOpenFeedback() },
                 )
             }
             if (archiving) {

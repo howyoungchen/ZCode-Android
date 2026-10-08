@@ -358,6 +358,7 @@
     <string name="ws_reconnect">重新连接</string>
     <string name="copy_path">复制路径</string>
     <string name="copy_session_id">复制会话 ID</string>
+    <string name="task_feedback">反馈问题</string>
     <string name="git_tools">Git 工具</string>
     <string name="git_changes">更改</string>
     <string name="git_branch">分支</string>

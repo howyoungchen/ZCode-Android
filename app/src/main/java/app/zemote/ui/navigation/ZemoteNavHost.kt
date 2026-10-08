@@ -173,6 +173,7 @@ fun ZemoteNavHost(
                     navController.navigate(Screen.Subagent.createRoute(wk, cid, pid))
                 },
                 onOpenAISettings = { navController.navigate(Screen.AISettings.route) },
+                onOpenFeedback = { navController.navigate(Screen.Feedback.route) },
                 themeManager = themeManager,
             )
         }

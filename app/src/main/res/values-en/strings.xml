@@ -354,6 +354,7 @@
     <string name="ws_reconnect">Reconnect</string>
     <string name="copy_path">Copy path</string>
     <string name="copy_session_id">Copy session ID</string>
+    <string name="task_feedback">Report an issue</string>
     <string name="git_tools">Git tools</string>
     <string name="git_changes">Changes</string>
     <string name="git_branch">Branch</string>
