@@ -341,5 +341,27 @@
     <string name="task_rename_hint">任务名称</string>
     <string name="copy_path">复制路径</string>
     <string name="copy_session_id">复制会话 ID</string>
+    <string name="git_tools">Git 工具</string>
+    <string name="git_changes">更改</string>
+    <string name="git_branch">分支</string>
+    <string name="git_commit_push">提交或推送</string>
+    <string name="git_commit_hint">提交信息</string>
+    <string name="git_commit">提交</string>
+    <string name="git_commit_and_push">提交并推送</string>
+    <string name="git_push">推送</string>
+    <string name="git_switch_failed">切换分支失败</string>
+    <string name="git_no_repo">未检测到 Git 仓库</string>
+    <string name="progress_title">进程</string>
+    <string name="file_changes_title">已更改文件</string>
+    <string name="file_changes_empty">没有可显示的文件明细</string>
+    <string name="rewind_title">撤销文件改动</string>
+    <string name="rewind_loading">正在检查可撤销文件…</string>
+    <string name="rewind_applying">正在撤销…</string>
+    <string name="rewind_safe">可安全撤销 %1$d</string>
+    <string name="rewind_unsafe">不能安全撤销 %1$d</string>
+    <string name="rewind_ignored">已忽略 %1$d</string>
+    <string name="rewind_confirm">撤销文件</string>
+    <string name="rewind_cannot_apply">存在不能安全撤销的文件，未写入任何文件。</string>
+    <string name="rewind_error">文件撤销请求失败，请稍后再试。</string>
 
 </resources>

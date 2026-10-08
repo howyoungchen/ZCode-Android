@@ -55,6 +55,8 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.CallSplit
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.GppBad
@@ -251,6 +253,8 @@ fun ChatScreen(
 
     // 任务面板开关（面板内部自己订阅 pendingInteractions / backgroundWorks）
     var showTaskPanel by remember { mutableStateOf(false) }
+    // 文件更改明细 / 撤销预检对话框的目标回合行
+    var changesRow by remember { mutableStateOf<ConvRow?>(null) }
 
     // 附件内容加载（收到的图片消息按 ref 拉取渲染）。
     // 这个 lambda 会一路传到每个可见的时间线条目，**必须实例稳定**：
@@ -355,6 +359,7 @@ fun ChatScreen(
                 loadAttachment = loadAttachment,
                 onOpenSubagent = onOpenSubagent,
                 scope = scope,
+                onShowChanges = { changesRow = it },
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
@@ -466,12 +471,27 @@ fun ChatScreen(
 
         // 权限审批 / 用户输入弹窗：出现新的待响应请求时自动弹出
         InteractionDialogHost(repo)
+        changesRow?.let { row ->
+            FileChangesDialog(
+                repo = repo,
+                row = row,
+                onDismiss = { changesRow = null },
+            )
+        }
 
         // 任务面板（全屏覆盖）：不可见时完全不订阅后台状态
         TaskPanelHost(
             repo = repo,
+            workspaceKey = workspaceKey,
             visible = showTaskPanel,
             onDismiss = { showTaskPanel = false },
+            onOpenFileChanges = {
+                showTaskPanel = false
+                val turnRow = repo?.rows?.value?.lastOrNull {
+                    it.kind == ConvKinds.TURN_HEADER && it.fileChanges != null
+                }
+                if (turnRow != null) changesRow = turnRow
+            },
         )
     }
 }
@@ -711,8 +731,10 @@ private fun InteractionDialogHost(repo: app.zemote.protocol.ConversationV4Sessio
 @Composable
 private fun TaskPanelHost(
     repo: app.zemote.protocol.ConversationV4Session?,
+    workspaceKey: String,
     visible: Boolean,
     onDismiss: () -> Unit,
+    onOpenFileChanges: () -> Unit = {},
 ) {
     if (!visible) return
     val scope = rememberCoroutineScope()
@@ -720,8 +742,13 @@ private fun TaskPanelHost(
         ?: remember { mutableStateOf(emptyList()) })
     val works by (repo?.backgroundWorks?.collectAsState()
         ?: remember { mutableStateOf(emptyList()) })
+    val todos by (repo?.todos?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
+    val git = remember(repo) { runCatching { repo?.gitService() }.getOrNull() }
 
     TaskPanel(
+        git = git,
+        todos = todos,
+        onOpenFileChanges = onOpenFileChanges,
         interactions = interactions,
         works = works,
         onRespond = { inter, optId, freeText, action ->
@@ -735,6 +762,216 @@ private fun TaskPanelHost(
         },
         onDismiss = onDismiss,
     )
+}
+
+// ────────────────────────── 文件更改明细与撤销预检 ──────────────────────────
+
+/**
+ * 文件更改明细对话框：列出该回合改过的文件（官方「展开已更改文件」），
+ * 可在此进入撤销（撤销前先做安全预检）。
+ */
+@Composable
+private fun FileChangesDialog(
+    repo: app.zemote.protocol.ConversationV4Session?,
+    row: ConvRow,
+    onDismiss: () -> Unit,
+) {
+    var detail by remember(row.rowId) { mutableStateOf<app.zemote.protocol.FileChangesDetail?>(null) }
+    var loading by remember(row.rowId) { mutableStateOf(true) }
+    var showRewind by remember { mutableStateOf(false) }
+    LaunchedEffect(row.rowId) {
+        detail = runCatching { repo?.fileChangesDetail(row) }.getOrNull()
+        loading = false
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                detail?.let {
+                    stringResource(R.string.msg_changes, it.files, it.additions, it.deletions)
+                } ?: stringResource(R.string.file_changes_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (loading) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(stringResource(R.string.loading_chat), style = MaterialTheme.typography.bodySmall)
+                    }
+                } else {
+                    val items = detail?.items.orEmpty()
+                    if (items.isEmpty()) {
+                        Text(
+                            stringResource(R.string.file_changes_empty),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        items.forEach { item ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp),
+                            ) {
+                                Text(
+                                    item.path,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "+${item.additions} -${item.deletions}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (row.canRewindFiles) {
+                TextButton(onClick = { showRewind = true }) {
+                    Text(stringResource(R.string.msg_undo))
+                }
+            } else {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            }
+        },
+        dismissButton = {
+            if (row.canRewindFiles) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            }
+        },
+    )
+
+    if (showRewind) {
+        RewindDialog(
+            repo = repo,
+            row = row,
+            onDismiss = { showRewind = false; onDismiss() },
+        )
+    }
+}
+
+/** 撤销预检对话框：先列安全 / 不安全 / 已忽略文件，确认后才真正撤销（官方 rewindDialog） */
+@Composable
+private fun RewindDialog(
+    repo: app.zemote.protocol.ConversationV4Session?,
+    row: ConvRow,
+    onDismiss: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var preview by remember(row.rowId) { mutableStateOf<app.zemote.protocol.RewindPreview?>(null) }
+    var loading by remember(row.rowId) { mutableStateOf(true) }
+    var applying by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(row.rowId) {
+        preview = runCatching { repo?.fileRewindPreview(row) }.getOrNull()
+        loading = false
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!applying) onDismiss() },
+        title = { Text(stringResource(R.string.rewind_title), style = MaterialTheme.typography.titleSmall) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                when {
+                    loading || applying -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            stringResource(if (applying) R.string.rewind_applying else R.string.rewind_loading),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    preview == null -> Text(
+                        error ?: stringResource(R.string.rewind_error),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    else -> {
+                        val p = preview!!
+                        RewindGroup(stringResource(R.string.rewind_safe, p.safeFiles.size), p.safeFiles)
+                        if (p.unsafeFiles.isNotEmpty()) {
+                            RewindGroup(stringResource(R.string.rewind_unsafe, p.unsafeFiles.size), p.unsafeFiles)
+                        }
+                        if (p.ignoredFiles.isNotEmpty()) {
+                            RewindGroup(stringResource(R.string.rewind_ignored, p.ignoredFiles.size), p.ignoredFiles)
+                        }
+                        if (!p.canApply) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                stringResource(R.string.rewind_cannot_apply),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                error?.let {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    scope.launch {
+                        applying = true
+                        error = null
+                        val ok = runCatching { repo?.applyFileRewind(row) == true }.getOrDefault(false)
+                        applying = false
+                        if (ok) onDismiss() else error = null
+                    }
+                },
+                enabled = preview?.canApply == true && !applying && !loading,
+            ) { Text(stringResource(R.string.rewind_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !applying) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun RewindGroup(title: String, files: List<app.zemote.protocol.RewindFile>) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+        files.forEach { f ->
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                Text(
+                    f.path,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (f.reason != null) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        f.reason,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+    }
 }
 
 // ────────────────────────── 发送区（独立重组域） ──────────────────────────
@@ -846,6 +1083,7 @@ private fun MessageTimeline(
     loadAttachment: suspend (String) -> app.zemote.protocol.AttachmentData?,
     onOpenSubagent: (String, String, String) -> Unit,
     scope: CoroutineScope,
+    onShowChanges: (ConvRow) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val rows by repo.rows.collectAsState()
@@ -867,10 +1105,13 @@ private fun MessageTimeline(
     }
 
     // 每回合的文件更改汇总（turnHeader.fileChanges）：助手消息行渲染「N 个文件已更改」用
-    val turnChanges = remember(rows) {
+    val turnRows = remember(rows) {
         rows.asSequence()
-            .filter { it.kind == ConvKinds.TURN_HEADER && it.fileChanges != null && !it.turnId.isNullOrBlank() }
-            .associate { it.turnId!! to it.fileChanges!! }
+            .filter { it.kind == ConvKinds.TURN_HEADER && !it.turnId.isNullOrBlank() }
+            .associateBy { it.turnId!! }
+    }
+    val turnChanges = remember(turnRows) {
+        turnRows.mapNotNull { (tid, row) -> row.fileChanges?.let { tid to it } }.toMap()
     }
 
     // 折叠的回合（官方「已工作 N」行可收起本回合的思考/工具行，正文与用户消息保留）
@@ -1126,9 +1367,11 @@ private fun MessageTimeline(
             itemsIndexed(visibleItems, key = { _, item -> item.key }) { index, item ->
                 when (item) {
                     is DisplayItem.Message -> {
-                        val fileChanges = turnChanges[item.rows.last().turnId]
+                        val lastRow = item.rows.last()
+                        val fileChanges = turnChanges[lastRow.turnId]
+                        val turnRow = turnRows[lastRow.turnId]
                         FadeInContainer(item.key) {
-                            AssistantMessageBlock(item.rows, fileChanges, onRowAction)
+                            AssistantMessageBlock(item.rows, turnRow, fileChanges, onRowAction, onShowChanges)
                         }
                     }
                     is DisplayItem.Single -> {
@@ -1159,6 +1402,8 @@ private fun MessageTimeline(
                                     row, loadAttachment, nextIssuedAt,
                                     onOpenSubagent = openSub, onAction = onRowAction,
                                     turnFileChanges = fileChanges,
+                                    turnRow = turnRows[row.turnId],
+                                    onShowChanges = onShowChanges,
                                     turnCollapsed = collapsed,
                                     onToggleTurn = toggleTurn,
                                 )
@@ -1228,6 +1473,8 @@ private fun TimelineRow(
     onOpenSubagent: (ConvRow) -> Unit = {},
     onAction: (RowAction, ConvRow) -> Unit = { _, _ -> },
     turnFileChanges: app.zemote.protocol.FileChanges? = null,
+    turnRow: ConvRow? = null,
+    onShowChanges: (ConvRow) -> Unit = {},
     turnCollapsed: Boolean = false,
     onToggleTurn: () -> Unit = {},
 ) {
@@ -1245,7 +1492,7 @@ private fun TimelineRow(
                         .fillMaxWidth()
                         .padding(vertical = 6.dp),
                 )
-                MessageActionRow(row, turnFileChanges, onAction)
+                MessageActionRow(row, turnRow, turnFileChanges, onAction, onShowChanges)
             }
         }
         ConvKinds.TURN_HEADER -> TurnDurationRow(row, turnCollapsed, onToggleTurn)
@@ -1325,8 +1572,10 @@ private fun TurnDurationRow(row: ConvRow, collapsed: Boolean, onToggle: () -> Un
 @Composable
 private fun AssistantMessageBlock(
     rows: List<ConvRow>,
+    turnRow: ConvRow?,
     turnFileChanges: app.zemote.protocol.FileChanges?,
     onAction: (RowAction, ConvRow) -> Unit,
+    onShowChanges: (ConvRow) -> Unit,
 ) {
     Column {
         for (r in rows) {
@@ -1339,7 +1588,7 @@ private fun AssistantMessageBlock(
                 )
             }
         }
-        MessageActionRow(rows.last(), turnFileChanges, onAction)
+        MessageActionRow(rows.last(), turnRow, turnFileChanges, onAction, onShowChanges)
     }
 }
 
@@ -1350,8 +1599,10 @@ private fun AssistantMessageBlock(
 @Composable
 private fun MessageActionRow(
     row: ConvRow,
+    turnRow: ConvRow?,
     fileChanges: app.zemote.protocol.FileChanges?,
     onAction: (RowAction, ConvRow) -> Unit,
+    onShowChanges: (ConvRow) -> Unit,
 ) {
     val ctx = LocalContext.current
     val subtlest = app.zemote.ui.theme.subtlestColor()
@@ -1365,6 +1616,7 @@ private fun MessageActionRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 2.dp),
         ) {
+            // 点击摘要展开文件明细（官方「展开已更改文件」）
             Text(
                 stringResource(
                     R.string.msg_changes,
@@ -1374,11 +1626,15 @@ private fun MessageActionRow(
                 ),
                 style = MaterialTheme.typography.labelSmall,
                 color = subtlest,
+                modifier = Modifier.clickable {
+                    val target = turnRow ?: row
+                    onShowChanges(target)
+                },
             )
             if (row.canRewindFiles) {
                 Spacer(modifier = Modifier.width(4.dp))
                 TextButton(
-                    onClick = { onAction(RowAction.Rewind, row) },
+                    onClick = { onShowChanges(turnRow ?: row) },
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     modifier = Modifier.height(28.dp),
                 ) {
@@ -2414,9 +2670,341 @@ private fun InteractionDialog(
 
 // ────────────────────────── 任务面板 ──────────────────────────
 
+/**
+ * 状态侧栏「Git 工具」节（官方 chat.statusPanel.environment）：
+ * 更改计数 / 切换分支 / 提交或推送，全部走 git 通道按需请求。
+ */
+@Composable
+private fun GitToolsSection(
+    git: app.zemote.protocol.GitService?,
+    onOpenFileChanges: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+    var summary by remember(git) { mutableStateOf<app.zemote.protocol.GitSummary?>(null) }
+    var added by remember(git) { mutableStateOf(0) }
+    var removed by remember(git) { mutableStateOf(0) }
+    var branches by remember(git) { mutableStateOf<app.zemote.protocol.GitBranches?>(null) }
+    var branchMenu by remember { mutableStateOf(false) }
+    var commitOpen by remember { mutableStateOf(false) }
+    var pending by remember { mutableStateOf(false) }
+
+    suspend fun reload() {
+        if (git == null) return
+        summary = git.repositorySummary()
+        val all = git.changes("unstaged") + git.changes("staged")
+        added = all.sumOf { it.additions }
+        removed = all.sumOf { it.deletions }
+    }
+    LaunchedEffect(git) { runCatching { reload() } }
+
+    val subtlest = app.zemote.ui.theme.subtlestColor()
+    Column {
+        Text(
+            stringResource(R.string.git_tools),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(vertical = 4.dp),
+        )
+        Surface(
+            color = app.zemote.ui.theme.cardContainerColor(),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                if (summary?.isRepository != true) {
+                    Text(
+                        stringResource(R.string.git_no_repo),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = subtlest,
+                        modifier = Modifier.padding(vertical = 10.dp),
+                    )
+                } else {
+                    // 更改：+N -M，点开看文件明细
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenFileChanges() }
+                            .padding(vertical = 10.dp),
+                    ) {
+                        Text(
+                            stringResource(R.string.git_changes),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            "+$added",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (added > 0) app.zemote.ui.theme.StatusSuccess else subtlest,
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "-$removed",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (removed > 0) MaterialTheme.colorScheme.error else subtlest,
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    // 分支：点击弹出分支列表
+                    Box {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    branchMenu = true
+                                    scope.launch {
+                                        branches = git?.localBranches()
+                                    }
+                                }
+                                .padding(vertical = 10.dp),
+                        ) {
+                            Icon(
+                                Icons.Rounded.CallSplit,
+                                contentDescription = null,
+                                tint = subtlest,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                summary?.branchName ?: stringResource(R.string.git_branch),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Icon(
+                                Icons.Rounded.ExpandMore,
+                                contentDescription = null,
+                                tint = subtlest,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                        DropdownMenu(expanded = branchMenu, onDismissRequest = { branchMenu = false }) {
+                            val list = branches
+                            if (list == null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.loading_chat), style = MaterialTheme.typography.bodySmall) },
+                                    onClick = {},
+                                )
+                            } else {
+                                for (name in list.branches) {
+                                    val current = name == list.currentBranch
+                                    DropdownMenuItem(
+                                        trailingIcon = {
+                                            if (current) {
+                                                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(15.dp))
+                                            }
+                                        },
+                                        text = {
+                                            Text(
+                                                name,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        },
+                                        onClick = {
+                                            branchMenu = false
+                                            if (!current) {
+                                                scope.launch {
+                                                    pending = true
+                                                    val ok = git?.switchBranch(name)
+                                                    pending = false
+                                                    if (ok?.ok != true) {
+                                                        android.widget.Toast.makeText(
+                                                            ctx,
+                                                            ctx.getString(R.string.git_switch_failed),
+                                                            android.widget.Toast.LENGTH_SHORT,
+                                                        ).show()
+                                                    }
+                                                    runCatching { reload() }
+                                                }
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    // 提交或推送
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { commitOpen = true }
+                            .padding(vertical = 10.dp),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            contentDescription = null,
+                            tint = subtlest,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.git_commit_push),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (pending) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (commitOpen) {
+        var message by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { commitOpen = false },
+            title = { Text(stringResource(R.string.git_commit_push)) },
+            text = {
+                OutlinedTextField(
+                    value = message,
+                    onValueChange = { message = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4,
+                    placeholder = { Text(stringResource(R.string.git_commit_hint)) },
+                )
+            },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(
+                        onClick = {
+                            commitOpen = false
+                            scope.launch {
+                                pending = true
+                                git?.changes("unstaged")?.map { it.path }?.let { git.stagePaths(it) }
+                                git?.commit(message.trim().ifBlank { "update" })
+                                pending = false
+                                runCatching { reload() }
+                            }
+                        },
+                        enabled = message.isNotBlank() && git != null,
+                    ) { Text(stringResource(R.string.git_commit)) }
+                    TextButton(
+                        onClick = {
+                            commitOpen = false
+                            scope.launch {
+                                pending = true
+                                git?.changes("unstaged")?.map { it.path }?.let { git.stagePaths(it) }
+                                git?.commit(message.trim().ifBlank { "update" })
+                                git?.push()
+                                pending = false
+                                runCatching { reload() }
+                            }
+                        },
+                        enabled = message.isNotBlank() && git != null,
+                    ) { Text(stringResource(R.string.git_commit_and_push)) }
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(
+                        onClick = {
+                            commitOpen = false
+                            scope.launch {
+                                pending = true
+                                git?.push()
+                                pending = false
+                                runCatching { reload() }
+                            }
+                        },
+                        enabled = git != null,
+                    ) { Text(stringResource(R.string.git_push)) }
+                    TextButton(onClick = { commitOpen = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            },
+        )
+    }
+}
+
+/** 状态侧栏「进程」节（官方 chat.statusPanel.todo）：待办清单 */
+@Composable
+private fun TodoSection(todos: List<app.zemote.protocol.TodoItem>) {
+    val subtlest = app.zemote.ui.theme.subtlestColor()
+    val done = todos.count { it.status == "completed" }
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.progress_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "$done/${todos.size}",
+                style = MaterialTheme.typography.labelMedium,
+                color = subtlest,
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Surface(
+            color = app.zemote.ui.theme.cardContainerColor(),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                todos.forEach { todo ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                    ) {
+                        when (todo.status) {
+                            "completed" -> Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                tint = app.zemote.ui.theme.StatusSuccess,
+                                modifier = Modifier.size(15.dp),
+                            )
+                            "in_progress" -> CircularProgressIndicator(
+                                modifier = Modifier.size(13.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
+                            else -> Icon(
+                                Icons.Rounded.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = subtlest,
+                                modifier = Modifier.size(15.dp),
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            todo.content,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (todo.status == "completed") subtlest
+                                else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
 /** 任务面板：显示待响应交互 + 后台运行中的任务 */
 @Composable
 private fun TaskPanel(
+    git: app.zemote.protocol.GitService?,
+    todos: List<app.zemote.protocol.TodoItem>,
+    onOpenFileChanges: () -> Unit,
     interactions: List<PendingInteraction>,
     works: List<BackgroundWork>,
     onRespond: (PendingInteraction, String?, String?, String?) -> Unit,
@@ -2451,6 +3039,14 @@ private fun TaskPanel(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // Git 工具（官方状态侧栏 environment 节）
+            item { GitToolsSection(git = git, onOpenFileChanges = onOpenFileChanges) }
+
+            // 进程（官方 statusPanel.todo：待办清单）
+            if (todos.isNotEmpty()) {
+                item { TodoSection(todos) }
+            }
+
             // 待响应交互
             if (interactions.isNotEmpty()) {
                 item {

@@ -401,6 +401,13 @@ class ConversationV4Session private constructor(
     private val _backgroundWorks = MutableStateFlow<List<BackgroundWork>>(emptyList())
     val backgroundWorks: StateFlow<List<BackgroundWork>> = _backgroundWorks.asStateFlow()
 
+    /** Git 工具（官方 gitService）：状态侧栏按需调用，不做轮询 */
+    fun gitService(): GitService = GitService(
+        bridge.channelsClient,
+        (scopeParams?.get("workspacePath") ?: workspaceKey)?.toString() ?: workspaceKey,
+        (scopeParams?.get("workspaceIdentity") ?: workspaceKey)?.toString(),
+    )
+
     /** 待办清单（官方 todos → 状态侧栏「进程」） */
     private val _todos = MutableStateFlow<List<TodoItem>>(emptyList())
     val todos: StateFlow<List<TodoItem>> = _todos.asStateFlow()

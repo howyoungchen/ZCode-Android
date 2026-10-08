@@ -337,5 +337,27 @@
     <string name="task_rename_hint">Task name</string>
     <string name="copy_path">Copy path</string>
     <string name="copy_session_id">Copy session ID</string>
+    <string name="git_tools">Git tools</string>
+    <string name="git_changes">Changes</string>
+    <string name="git_branch">Branch</string>
+    <string name="git_commit_push">Commit or push</string>
+    <string name="git_commit_hint">Commit message</string>
+    <string name="git_commit">Commit</string>
+    <string name="git_commit_and_push">Commit and push</string>
+    <string name="git_push">Push</string>
+    <string name="git_switch_failed">Failed to switch branch</string>
+    <string name="git_no_repo">No Git repository found</string>
+    <string name="progress_title">Progress</string>
+    <string name="file_changes_title">Changed files</string>
+    <string name="file_changes_empty">No file details to show</string>
+    <string name="rewind_title">Undo file changes</string>
+    <string name="rewind_loading">Checking reversible files…</string>
+    <string name="rewind_applying">Undoing…</string>
+    <string name="rewind_safe">Safe to undo %1$d</string>
+    <string name="rewind_unsafe">Unsafe to undo %1$d</string>
+    <string name="rewind_ignored">Ignored %1$d</string>
+    <string name="rewind_confirm">Undo files</string>
+    <string name="rewind_cannot_apply">At least one file is unsafe, so no files were written.</string>
+    <string name="rewind_error">The file undo request failed. Please try again later.</string>
 
 </resources>
