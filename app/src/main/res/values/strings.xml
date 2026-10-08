@@ -333,9 +333,14 @@
     <string name="mode_yolo_desc">减少确认次数。</string>
     <string name="ctx_title">上下文容量</string>
     <string name="ctx_hit_rate">平均缓存命中率</string>
+    <string name="quota_title">剩余额度</string>
+    <string name="quota_five_hour">5 小时</string>
+    <string name="quota_week">每周</string>
+    <string name="quota_mcp">ZCode MCP</string>
     <string name="usage_tool_prompt">工具提示词</string>
     <string name="model_manage">管理模型</string>
     <string name="model_vision">视觉</string>
+    <string name="plan_badge">个人</string>
     <string name="more_menu">更多</string>
     <string name="task_rename">重命名任务</string>
     <string name="task_rename_hint">任务名称</string>

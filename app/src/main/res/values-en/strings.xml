@@ -329,9 +329,14 @@
     <string name="mode_yolo_desc">Run with fewer confirmations.</string>
     <string name="ctx_title">Context windows</string>
     <string name="ctx_hit_rate">Average cache hit rate</string>
+    <string name="quota_title">Quota remaining</string>
+    <string name="quota_five_hour">5-hour</string>
+    <string name="quota_week">Weekly</string>
+    <string name="quota_mcp">ZCode MCP</string>
     <string name="usage_tool_prompt">Tool prompt</string>
     <string name="model_manage">Manage models</string>
     <string name="model_vision">Vision</string>
+    <string name="plan_badge">Individual</string>
     <string name="more_menu">More</string>
     <string name="task_rename">Rename task</string>
     <string name="task_rename_hint">Task name</string>

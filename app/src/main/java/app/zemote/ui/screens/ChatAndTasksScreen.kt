@@ -1056,6 +1056,10 @@ private fun ComposerSection(
             scope.launch { runCatching { repo?.setCollaborationMode(mode) } }
         },
         onManageModels = onManageModels,
+        loadEntitlement = {
+            val r = repo
+            if (r == null) null else runCatching { r.entitlementSnapshot() }.getOrNull()
+        },
         onSend = onSend,
         onStop = onStop,
     )
@@ -3258,6 +3262,7 @@ private fun ComposerBar(
     onModelSelect: (provider: String, model: String) -> Unit,
     onModeSelect: (String) -> Unit,
     onManageModels: () -> Unit,
+    loadEntitlement: (suspend () -> app.zemote.protocol.EntitlementSnapshot?)? = null,
     onSend: (queued: Boolean) -> Unit,
     onStop: () -> Unit,
 ) {
@@ -3324,7 +3329,7 @@ private fun ComposerBar(
 
                     // ── 右：上下文圆环 · 模型 · 推理强度 · 停止/发送 ──
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        ContextRingButton(usage = usage)
+                        ContextRingButton(usage = usage, loadEntitlement = loadEntitlement)
                         ModelButton(
                             config = config,
                             modelOptions = modelOptions,
@@ -3446,7 +3451,6 @@ private fun ModelButton(
     onManageModels: () -> Unit = {},
 ) {
     var open by remember { mutableStateOf(false) }
-    var submenuProvider by remember { mutableStateOf<String?>(null) }
     val currentProvider = config?.provider
     val currentModel = config?.model
 
@@ -3482,7 +3486,7 @@ private fun ModelButton(
         }
         DropdownMenu(
             expanded = open,
-            onDismissRequest = { open = false; submenuProvider = null },
+            onDismissRequest = { open = false },
         ) {
             if (modelOptions.isEmpty()) {
                 DropdownMenuItem(
@@ -3491,16 +3495,16 @@ private fun ModelButton(
                 )
                 return@DropdownMenu
             }
-            val sub = submenuProvider
-            if (sub == null) {
-                // 顶层：当前供应商组内联，其余供应商是下钻入口
-                for ((provider, items) in groups) {
-                    if (provider == currentGroupKey) {
-                        ModelGroupHeader(provider)
-                        for (opt in items) {
-                            ModelOptionItem(opt, currentProvider, currentModel, onSelect) { open = false; submenuProvider = null }
-                        }
-                    } else {
+            // 当前供应商组内联，其余供应商飞出式子菜单（对齐官方）
+            for ((provider, items) in groups) {
+                if (provider == currentGroupKey) {
+                    ModelGroupHeader(provider)
+                    for (opt in items) {
+                        ModelOptionItem(opt, currentProvider, currentModel, onSelect) { open = false }
+                    }
+                } else {
+                    Box {
+                        var flyout by remember(provider) { mutableStateOf(false) }
                         DropdownMenuItem(
                             leadingIcon = {
                                 Icon(
@@ -3510,38 +3514,36 @@ private fun ModelButton(
                                     modifier = Modifier.size(16.dp),
                                 )
                             },
-                            text = { Text(providerDisplayName(provider), style = MaterialTheme.typography.bodyMedium) },
-                            onClick = { submenuProvider = provider },
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(providerDisplayName(provider), style = MaterialTheme.typography.bodyMedium)
+                                    if (providerHasPlanBadge(provider)) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        PlanBadge()
+                                    }
+                                }
+                            },
+                            onClick = { flyout = true },
                         )
+                        // 飞出式子菜单：锚定在该供应商条目旁
+                        DropdownMenu(
+                            expanded = flyout,
+                            onDismissRequest = { flyout = false },
+                        ) {
+                            for (opt in items) {
+                                ModelOptionItem(opt, currentProvider, currentModel, onSelect) {
+                                    flyout = false; open = false
+                                }
+                            }
+                        }
                     }
                 }
-                HorizontalDivider()
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.model_manage), style = MaterialTheme.typography.bodyMedium) },
-                    onClick = { open = false; submenuProvider = null; onManageModels() },
-                )
-            } else {
-                // 下钻：某供应商的模型列表 + 返回
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clickable { submenuProvider = null }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                ) {
-                    Icon(
-                        Icons.Rounded.KeyboardArrowLeft,
-                        contentDescription = stringResource(R.string.back),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(providerDisplayName(sub), style = MaterialTheme.typography.bodyMedium)
-                }
-                HorizontalDivider()
-                for (opt in groups.firstOrNull { it.first == sub }?.second.orEmpty()) {
-                    ModelOptionItem(opt, currentProvider, currentModel, onSelect) { open = false; submenuProvider = null }
-                }
             }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.model_manage), style = MaterialTheme.typography.bodyMedium) },
+                onClick = { open = false; onManageModels() },
+            )
         }
     }
 }
@@ -3583,12 +3585,43 @@ private fun ModelOptionItem(
 /** 供应商分组标题（官方组头「BigModel」样式） */
 @Composable
 private fun ModelGroupHeader(provider: String) {
-    Text(
-        providerDisplayName(provider),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-    )
+    ) {
+        Text(
+            providerDisplayName(provider),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (providerHasPlanBadge(provider)) {
+            Spacer(modifier = Modifier.width(6.dp))
+            PlanBadge()
+        }
+    }
+}
+
+/** 套餐徽章（官方 labelBadge「个人」）：coding-plan / start-plan 供应商显示 */
+private fun providerHasPlanBadge(provider: String): Boolean {
+    val p = provider.lowercase()
+    return "coding-plan" in p || "coding_plan" in p || "start-plan" in p || "start_plan" in p
+}
+
+/** 「个人」套餐徽章 */
+@Composable
+private fun PlanBadge() {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Text(
+            stringResource(R.string.plan_badge),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+        )
+    }
 }
 
 /** 「视觉」徽章（官方 model.capability.vision） */
@@ -3697,7 +3730,10 @@ private fun ModeMenuItem(
  * 上下文圆环按钮：官方以圆环进度呈现用量，点击弹出「上下文容量」面板。
  */
 @Composable
-private fun ContextRingButton(usage: app.zemote.protocol.ConvUsage?) {
+private fun ContextRingButton(
+    usage: app.zemote.protocol.ConvUsage?,
+    loadEntitlement: (suspend () -> app.zemote.protocol.EntitlementSnapshot?)? = null,
+) {
     var open by remember { mutableStateOf(false) }
     if (usage == null || usage.maxTokens == 0L) return
     val ratio = usage.ratio.coerceIn(0f, 1f)
@@ -3731,14 +3767,23 @@ private fun ContextRingButton(usage: app.zemote.protocol.ConvUsage?) {
             }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            CapacityPanel(usage)
+            CapacityPanel(usage, loadEntitlement)
         }
     }
 }
 
 /** 上下文容量面板（官方 chat.contextUsage 弹层） */
 @Composable
-private fun CapacityPanel(usage: app.zemote.protocol.ConvUsage) {
+private fun CapacityPanel(
+    usage: app.zemote.protocol.ConvUsage,
+    loadEntitlement: (suspend () -> app.zemote.protocol.EntitlementSnapshot?)? = null,
+) {
+    var entitlement by remember { mutableStateOf<app.zemote.protocol.EntitlementSnapshot?>(null) }
+    LaunchedEffect(loadEntitlement) {
+        if (loadEntitlement != null) {
+            entitlement = runCatching { loadEntitlement() }.getOrNull()
+        }
+    }
     val ctx = LocalContext.current
     val isZh = java.util.Locale.getDefault().language.startsWith("zh")
     val ratio = usage.ratio.coerceIn(0f, 1f)
@@ -3825,6 +3870,103 @@ private fun CapacityPanel(usage: app.zemote.protocol.ConvUsage) {
                 )
             }
         }
+
+        // 剩余额度（官方 settings.usage.quotaTitle 区块）：取不到套餐数据时整块隐藏
+        val ent = entitlement
+        if (ent != null && (ent.fiveHour != null || ent.weekly != null || ent.mcp != null)) {
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.quota_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription = null,
+                    tint = app.zemote.ui.theme.StatusSuccess,
+                    modifier = Modifier.size(15.dp),
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                QuotaColumn(
+                    label = stringResource(R.string.quota_five_hour),
+                    limit = ent.fiveHour,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.weight(1f),
+                )
+                QuotaColumn(
+                    label = stringResource(R.string.quota_week),
+                    limit = ent.weekly,
+                    color = app.zemote.ui.theme.StatusSuccess,
+                    modifier = Modifier.weight(1f),
+                )
+                QuotaColumn(
+                    label = stringResource(R.string.quota_mcp),
+                    limit = ent.mcp,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+/** 单项额度列：标题 + 剩余百分比与重置时间 + 彩色进度条（官方额度三列） */
+@Composable
+private fun QuotaColumn(
+    label: String,
+    limit: app.zemote.protocol.QuotaLimit?,
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+) {
+    if (limit == null) return
+    val pct = limit.remainingPercent ?: 100.0
+    Column(modifier = modifier) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            "${(pct * 10).toInt() / 10.0}%${limit.nextResetTime?.let { " · " + quotaResetLabel(it) } ?: ""}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(2.dp)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction = (pct / 100.0).toFloat().coerceIn(0f, 1f))
+                    .height(4.dp)
+                    .background(color, RoundedCornerShape(2.dp)),
+            )
+        }
+    }
+}
+
+/** 重置时间：不足 1 天给倒计时（N 时 M 分），否则给日期（官方重置时间两种呈现） */
+private fun quotaResetLabel(nextResetTime: String): String {
+    val ts = nextResetTime.toLongOrNull()
+        ?: runCatching { java.time.Instant.parse(nextResetTime).toEpochMilli() }.getOrNull()
+        ?: return nextResetTime
+    val delta = ts - System.currentTimeMillis()
+    if (delta <= 0) return "--"
+    val minutes = delta / 60_000
+    return if (minutes < 24 * 60) {
+        String.format(Locale.ROOT, "%d:%02d", minutes / 60, minutes % 60)
+    } else {
+        SimpleDateFormat("M月d日", Locale.getDefault()).format(Date(ts))
     }
 }
 
