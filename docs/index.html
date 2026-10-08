@@ -517,12 +517,13 @@ SDK: API 28+ (Android 9.0)<br>
         let currentSource = 'mirror'; // 默认国内镜像
         
         // 静态版本信息（CSP fallback）
-        const VERSION = 'v1.12.0';
+        const VERSION = 'v1.13.0';
         const APK_SIZE = '4.2';
         const STATIC_DOWNLOAD_URL = 'https://github.com/howyoungchen/ZCode-Android/releases/download/' + VERSION + '/app-release.apk';
 
         // 版本历史（静态列表）
         const VERSION_HISTORY = [
+            { tag: 'v1.13.0', date: '2026-10-09', desc: '状态侧栏 Git 工具与进程清单、文件明细与撤销安全预检、剩余额度面板、模型菜单飞出子菜单', url: 'https://github.com/howyoungchen/ZCode-Android/releases/download/v1.13.0/app-release.apk', size: '4.5' },
             { tag: 'v1.12.0', date: '2026-10-08', desc: '界面对齐官方 Web 远控：消息操作行与已工作回合行、切换模式菜单、上下文容量面板、分组模型菜单', url: 'https://github.com/howyoungchen/ZCode-Android/releases/download/v1.12.0/app-release.apk', size: '4.4' },
             { tag: 'v1.11.2', date: '2026-10-08', desc: '修复仪表盘「新建任务」发首条消息必失败：命令信封恒带 sessionId（无会话传 null），IPC 编码保留 null 键对齐官方报文', url: 'https://github.com/howyoungchen/ZCode-Android/releases/download/v1.11.2/app-release.apk', size: '4.2' },
             { tag: 'v1.11.1', date: '2026-10-07', desc: '根治网络抖动下的连接降级：发送帧保留待确认并断线自动重发（对齐官方传输层），入站确认自动补发，连续降级恢复不再丢失', url: 'https://github.com/howyoungchen/ZCode-Android/releases/download/v1.11.1/app-release.apk', size: '4.2' },

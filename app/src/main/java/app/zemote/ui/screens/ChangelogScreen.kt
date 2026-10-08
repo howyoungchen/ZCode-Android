@@ -49,6 +49,15 @@ private data class ChangelogEntry(
 
 private val Changelogs = listOf(
     ChangelogEntry(
+        "v1.13.0", "2026-10-09",
+        listOf(
+            "状态侧栏新增 Git 工具：更改计数、切换分支、提交或推送（走 git 通道）",
+            "状态侧栏新增「进程」待办清单；文件更改摘要可展开明细，撤销前安全预检",
+            "上下文容量面板新增剩余额度（5 小时 / 每周 / ZCode MCP）",
+            "模型菜单飞出式子菜单与「个人」套餐徽章；仪表盘收起全部/整理任务与未连接状态",
+        ),
+    ),
+    ChangelogEntry(
         "v1.12.0", "2026-10-08",
         listOf(
             "会话消息操作行对齐官方：复制 / 赞 / 踩 / 分叉 + 时间戳，用户消息可复制与编辑",

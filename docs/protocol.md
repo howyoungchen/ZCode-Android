@@ -194,6 +194,27 @@ invalid_type 拒绝（`expected string, received undefined`）。null 值必须�
 
 `target.rowId` 与 `beforeRowId` 一样**必须是 number**（官方 Zod 校验）。
 
+**文件更改与撤销**：`conversationFileChangesV4(scope + {sessionId, target, baseRevision, baseLogEpoch})`
+→ `{files, additions, deletions, items:[{path, additions, deletions}]}`（「N 个文件已更改」展开明细）；
+`conversationFileRewindPreviewV4(同参)` → `{canApply, safeFiles[], unsafeFiles[], ignoredFiles[]}`
+（撤销前安全预检，条目 `{path, operationCount, reason?}`）；真正撤销仍走命令 `applyFileRewind`。
+
+**Git 通道（方法名即 RPC 名，首个参数 `{workspacePath, workspaceIdentity?}`）**：
+`getRepositorySummary`（分支/脏状态）、`getLocalBranches`、`switchBranch({targetBranchName})`、
+`getChanges({sourceId:"unstaged"|"staged"})`、`stagePaths({paths})`、`commit({message, paths?, stagedOnly?})`、
+`push`、`getIdentity`。状态侧栏「Git 工具」节的数据源。
+
+**任务列表通道（zcode-task）**：`setTaskPinned({taskId, pinned})`、`archiveTask({taskId})`、
+`setTaskUnread({taskId, unread})`（任务「更多」菜单的置顶/归档/标记未读）。
+
+**额度（usage-stats 通道）**：`getEntitlementSnapshot({includeSubscription, preferredProviderId, …})`
+→ `{quota:{limits:[{type:"TOKENS_LIMIT"|"TIME_LIMIT", unit, number, percentage?, remaining?, nextResetTime?}]}}`；
+5 小时窗口取 `TOKENS_LIMIT/unit=3/number=5`，每周取 `TOKENS_LIMIT/unit=6`，ZCode MCP 取 `TIME_LIMIT/unit=5/number=1`。
+取不到（未登录套餐）时界面隐藏「剩余额度」区块。
+
+**todos**：`state.updated` / 快照补丁里的 `todos:[{content, status:"pending"|"in_progress"|"completed", priority?}]`
+驱动状态侧栏「进程」节。
+
 ### 8.5 历史窗口
 
 `conversationRowsRangeV4(scope + {sessionId, limit:200, beforeRowId?})` →
