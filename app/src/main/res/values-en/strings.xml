@@ -349,6 +349,9 @@
     <string name="dashboard_collapse_all">Collapse all workspaces</string>
     <string name="dashboard_organize">Organize tasks</string>
     <string name="sort_created">Created time</string>
+    <string name="organize_by_workspace">By workspace</string>
+    <string name="organize_by_timeline">By timeline</string>
+    <string name="sort_by_label">Sort by</string>
     <string name="sort_updated">Updated time</string>
     <string name="ws_disconnected">Disconnected</string>
     <string name="ws_reconnect">Reconnect</string>

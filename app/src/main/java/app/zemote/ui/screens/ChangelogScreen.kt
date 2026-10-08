@@ -49,6 +49,13 @@ private data class ChangelogEntry(
 
 private val Changelogs = listOf(
     ChangelogEntry(
+        "v1.13.4", "2026-10-09",
+        listOf(
+            "仪表盘「整理任务」补齐「按工作区 / 按时间线」分组方式",
+            "按时间线把全部任务平铺成时间倒序列表，副标题带工作区名",
+        ),
+    ),
+    ChangelogEntry(
         "v1.13.3", "2026-10-09",
         listOf(
             "修复文件更改明细与撤销预检取数通道（改走 zcode-agent），摘要可回退行汇总",

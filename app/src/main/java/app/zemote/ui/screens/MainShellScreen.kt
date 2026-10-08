@@ -310,6 +310,8 @@ private fun DashboardContent(
     var collapseSignal by remember { mutableStateOf(0) }
     // 整理任务：false=按更新时间（默认），true=按创建时间
     var sortByCreated by remember { mutableStateOf(false) }
+    // 整理任务：分组方式（官方 organizeByWorkspace / organizeByTimeline）
+    var groupByWorkspace by remember { mutableStateOf(true) }
     var organizeMenu by remember { mutableStateOf(false) }
     // suspend 块里不能用 stringResource，先在组合期取好
     val unnamedTitle = stringResource(R.string.unnamed_session)
@@ -430,6 +432,32 @@ private fun DashboardContent(
                         )
                     }
                     DropdownMenu(expanded = organizeMenu, onDismissRequest = { organizeMenu = false }) {
+                        // 分组方式（官方 organizeByWorkspace / organizeByTimeline）
+                        DropdownMenuItem(
+                            trailingIcon = {
+                                if (groupByWorkspace) {
+                                    Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(15.dp))
+                                }
+                            },
+                            text = { Text(stringResource(R.string.organize_by_workspace), style = MaterialTheme.typography.bodyMedium) },
+                            onClick = { organizeMenu = false; groupByWorkspace = true },
+                        )
+                        DropdownMenuItem(
+                            trailingIcon = {
+                                if (!groupByWorkspace) {
+                                    Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(15.dp))
+                                }
+                            },
+                            text = { Text(stringResource(R.string.organize_by_timeline), style = MaterialTheme.typography.bodyMedium) },
+                            onClick = { organizeMenu = false; groupByWorkspace = false },
+                        )
+                        HorizontalDivider()
+                        Text(
+                            stringResource(R.string.sort_by_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
                         DropdownMenuItem(
                             trailingIcon = {
                                 if (!sortByCreated) {
@@ -527,18 +555,35 @@ private fun DashboardContent(
                 }
             }
         }
-        items(workspaces, key = { w ->
-            (w["workspaceIdentity"] as? String ?: w["workspacePath"] as? String ?: w.hashCode().toString())
-        }) { workspace ->
-            WorkspaceCard(
-                workspace = workspace,
-                tasks = tasksOf(tasks, workspace, sortByCreated),
-                onOpenTask = onOpenTask,
-                onStartDraft = onStartDraft,
-                collapseSignal = collapseSignal,
-                onReconnect = { retryKey++ },
-                modifier = Modifier.animateItem(),
-            )
+        if (groupByWorkspace) {
+            items(workspaces, key = { w ->
+                (w["workspaceIdentity"] as? String ?: w["workspacePath"] as? String ?: w.hashCode().toString())
+            }) { workspace ->
+                WorkspaceCard(
+                    workspace = workspace,
+                    tasks = tasksOf(tasks, workspace, sortByCreated),
+                    onOpenTask = onOpenTask,
+                    onStartDraft = onStartDraft,
+                    collapseSignal = collapseSignal,
+                    onReconnect = { retryKey++ },
+                    modifier = Modifier.animateItem(),
+                )
+            }
+        } else {
+            // 按时间线：全部任务平铺（官方 organizeByTimeline），副标题带工作区名
+            val flat = tasks.sortedByDescending {
+                if (sortByCreated) it.entry.createdAt ?: it.entry.updatedAt ?: 0L
+                else it.entry.updatedAt ?: it.entry.createdAt ?: 0L
+            }
+            items(flat, key = { it.entry.taskId }) { task ->
+                TaskRow(
+                    task = task.entry,
+                    showWorkspaceLabel = true,
+                    onClick = {
+                        onOpenTask(task.identity ?: task.entry.workspacePath ?: "", task.entry.taskId)
+                    },
+                )
+            }
         }
     }
 }
@@ -779,7 +824,7 @@ private fun WorkspaceKindBadge(kind: String) {
     }
 }
 @Composable
-private fun TaskRow(task: TaskEntry, onClick: () -> Unit) {
+private fun TaskRow(task: TaskEntry, showWorkspaceLabel: Boolean = false, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -795,10 +840,14 @@ private fun TaskRow(task: TaskEntry, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            // 官方任务行只显示相对时间（工作区归属由卡片标题表达）
-            if (task.updatedAt != null) {
+            // 卡内只显示相对时间（工作区归属由卡片标题表达）；平铺模式补工作区名
+            val sub = listOfNotNull(
+                if (showWorkspaceLabel) task.workspaceLabel?.takeIf { it.isNotBlank() } else null,
+                (task.updatedAt ?: task.createdAt)?.let { relativeTime(it) },
+            ).joinToString(" · ")
+            if (sub.isNotEmpty()) {
                 Text(
-                    relativeTime(task.updatedAt),
+                    sub,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
