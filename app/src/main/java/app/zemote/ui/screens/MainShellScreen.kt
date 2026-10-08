@@ -46,9 +46,14 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.rounded.UnfoldLess
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -301,6 +306,11 @@ private fun DashboardContent(
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var retryKey by remember { mutableStateOf(0) }
+    // 收起全部工作区：信号自增，各卡片收到后收起
+    var collapseSignal by remember { mutableStateOf(0) }
+    // 整理任务：false=按更新时间（默认），true=按创建时间
+    var sortByCreated by remember { mutableStateOf(false) }
+    var organizeMenu by remember { mutableStateOf(false) }
     // suspend 块里不能用 stringResource，先在组合期取好
     val unnamedTitle = stringResource(R.string.unnamed_session)
 
@@ -325,6 +335,7 @@ private fun DashboardContent(
                         workspacePath = m["workspacePath"]?.toString(),
                         workspaceLabel = m["workspaceLabel"]?.toString(),
                         updatedAt = (m["updatedAt"] as? Number)?.toLong(),
+                        createdAt = (m["createdAt"] as? Number)?.toLong(),
                     ),
                     identity = m["workspaceIdentity"]?.toString(),
                 )
@@ -376,7 +387,7 @@ private fun DashboardContent(
                 )
             }
         }
-        // 区块头：标题 + 统计 + 刷新（官方另有折叠/整理，均为持久偏好，App 不做）
+        // 区块头：标题 + 统计 + 收起全部 / 整理任务 / 刷新（对齐官方三按钮）
         item {
             Row(
                 modifier = Modifier
@@ -394,6 +405,50 @@ private fun DashboardContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                IconButton(
+                    onClick = { collapseSignal++ },
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        Icons.Rounded.UnfoldLess,
+                        contentDescription = stringResource(R.string.dashboard_collapse_all),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(15.dp),
+                    )
+                }
+                Box {
+                    IconButton(
+                        onClick = { organizeMenu = true },
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            Icons.Rounded.Sort,
+                            contentDescription = stringResource(R.string.dashboard_organize),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(15.dp),
+                        )
+                    }
+                    DropdownMenu(expanded = organizeMenu, onDismissRequest = { organizeMenu = false }) {
+                        DropdownMenuItem(
+                            trailingIcon = {
+                                if (!sortByCreated) {
+                                    Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(15.dp))
+                                }
+                            },
+                            text = { Text(stringResource(R.string.sort_updated), style = MaterialTheme.typography.bodyMedium) },
+                            onClick = { organizeMenu = false; sortByCreated = false },
+                        )
+                        DropdownMenuItem(
+                            trailingIcon = {
+                                if (sortByCreated) {
+                                    Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(15.dp))
+                                }
+                            },
+                            text = { Text(stringResource(R.string.sort_created), style = MaterialTheme.typography.bodyMedium) },
+                            onClick = { organizeMenu = false; sortByCreated = true },
+                        )
+                    }
                 }
                 IconButton(
                     onClick = { retryKey++ },
@@ -477,9 +532,11 @@ private fun DashboardContent(
         }) { workspace ->
             WorkspaceCard(
                 workspace = workspace,
-                tasks = tasksOf(tasks, workspace),
+                tasks = tasksOf(tasks, workspace, sortByCreated),
                 onOpenTask = onOpenTask,
                 onStartDraft = onStartDraft,
+                collapseSignal = collapseSignal,
+                onReconnect = { retryKey++ },
                 modifier = Modifier.animateItem(),
             )
         }
@@ -490,14 +547,21 @@ private fun DashboardContent(
 private data class DashboardTask(val entry: TaskEntry, val identity: String?)
 
 /** 任务归属：按 workspaceIdentity / workspacePath 与卡片键匹配 */
-private fun tasksOf(tasks: List<DashboardTask>, workspace: Map<String, Any>): List<TaskEntry> {
+private fun tasksOf(
+    tasks: List<DashboardTask>,
+    workspace: Map<String, Any>,
+    sortByCreated: Boolean = false,
+): List<TaskEntry> {
     val identity = workspace["workspaceIdentity"] as? String
     val path = workspace["workspacePath"] as? String
     val keys = listOfNotNull(identity, path).toSet()
     return tasks
         .filter { t -> keys.contains(t.identity) || keys.contains(t.entry.workspacePath) }
         .map { it.entry }
-        .sortedByDescending { it.updatedAt ?: 0L }
+        .sortedByDescending {
+            if (sortByCreated) it.createdAt ?: it.updatedAt ?: 0L
+            else it.updatedAt ?: it.createdAt ?: 0L
+        }
 }
 
 /**
@@ -511,11 +575,21 @@ private fun WorkspaceCard(
     tasks: List<TaskEntry>,
     onOpenTask: (workspaceKey: String, taskId: String) -> Unit,
     onStartDraft: (workspaceKey: String) -> Unit,
+    collapseSignal: Int = 0,
+    onReconnect: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val key = workspace["workspaceIdentity"] as? String
         ?: workspace["workspacePath"] as? String ?: ""
     var expanded by remember(key) { mutableStateOf(false) }
+    // 「收起全部工作区」信号：每次自增把所有卡片收起
+    LaunchedEffect(collapseSignal) {
+        if (collapseSignal > 0) expanded = false
+    }
+    // 官方：远程工作区在 connectionState=disconnected 时显示「未连接」
+    val disconnected = workspace["kind"] == "remote" &&
+        (workspace["connectionState"] == "disconnected" || workspace["connected"] == false)
+    val lastConnectionError = workspace["lastConnectionError"] as? String
 
     val title = (workspace["label"] as? String)
         ?: (workspace["workspacePath"] as? String)?.let(::lastPathSegment)
@@ -569,7 +643,9 @@ private fun WorkspaceCard(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         // 官方类型徽章：描边胶囊（本地/远程/对话）
-                        WorkspaceKindBadge(kind)
+                        WorkspaceKindBadge(
+                            if (workspace["workspacePurpose"] == "conversation") "conversation" else kind
+                        )
                     }
                     if (path.isNotEmpty()) {
                         Text(
@@ -585,6 +661,41 @@ private fun WorkspaceCard(
                             stringResource(R.string.ws_updated_at, relativeTime(it)),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (disconnected) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+                            ) {
+                                Text(
+                                    stringResource(R.string.ws_disconnected),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            TextButton(
+                                onClick = onReconnect,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                modifier = Modifier.height(26.dp),
+                            ) {
+                                Text(
+                                    stringResource(R.string.ws_reconnect),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
+                    }
+                    if (!lastConnectionError.isNullOrBlank()) {
+                        Text(
+                            lastConnectionError,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -650,13 +761,13 @@ private fun WorkspaceCard(
 @Composable
 private fun WorkspaceKindBadge(kind: String) {
     val label = when (kind) {
-        "remote" -> stringResource(R.string.ws_kind_remote)
         "conversation" -> stringResource(R.string.ws_kind_conversation)
+        "remote" -> stringResource(R.string.ws_kind_remote)
         else -> stringResource(R.string.ws_kind_local)
     }
     Surface(
-        color = app.zemote.ui.theme.surfaceTintColor(),
         shape = RoundedCornerShape(50),
+        color = app.zemote.ui.theme.surfaceTintColor(),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Text(
@@ -667,11 +778,6 @@ private fun WorkspaceKindBadge(kind: String) {
         )
     }
 }
-
-/**
- * 任务行：官方 min-h-12 圆角行 —— 标题 + 工作区/时间 + 状态胶囊。
- * 运行中 = accent 底 + spinner；已完成 = 实心绿 + 对勾；错误 = 实心红；空闲 = 描边胶囊。
- */
 @Composable
 private fun TaskRow(task: TaskEntry, onClick: () -> Unit) {
     Row(

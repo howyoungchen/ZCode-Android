@@ -30,6 +30,7 @@ data class TaskEntry(
     val workspacePath: String? = null,
     val workspaceLabel: String? = null,
     val updatedAt: Long? = null,
+    val createdAt: Long? = null,
 ) {
     val running: Boolean get() = status == "running"
 }
@@ -53,6 +54,7 @@ suspend fun fetchTasksFromBootstrap(client: ZemoteClient, workspaceKey: String? 
             workspacePath = m["workspacePath"]?.toString(),
             workspaceLabel = m["workspaceLabel"]?.toString(),
             updatedAt = (m["updatedAt"] as? Number)?.toLong(),
+            createdAt = (m["createdAt"] as? Number)?.toLong(),
         )
     }
 }

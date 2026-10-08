@@ -514,6 +514,7 @@ private fun TaskTabRow(
     val scope = rememberCoroutineScope()
     var moreOpen by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
+    var archiving by remember { mutableStateOf(false) }
     val sessionEntries by (repo?.sessionEntries?.collectAsState()
         ?: remember { mutableStateOf(emptyList<app.zemote.protocol.SessionEntry>()) })
     val pendingInteractions by (repo?.pendingInteractions?.collectAsState()
@@ -567,6 +568,35 @@ private fun TaskTabRow(
                     onClick = { moreOpen = false; renaming = true },
                 )
                 DropdownMenuItem(
+                    text = { Text(stringResource(R.string.task_pin), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = {
+                        moreOpen = false
+                        val tid = activeId
+                        if (tid != null) scope.launch { runCatching { repo?.setTaskPinned(tid, true) } }
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.task_unpin), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = {
+                        moreOpen = false
+                        val tid = activeId
+                        if (tid != null) scope.launch { runCatching { repo?.setTaskPinned(tid, false) } }
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.task_archive), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = { moreOpen = false; archiving = true },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.task_mark_unread), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = {
+                        moreOpen = false
+                        val tid = activeId
+                        if (tid != null) scope.launch { runCatching { repo?.setTaskUnread(tid, true) } }
+                    },
+                )
+                HorizontalDivider()
+                DropdownMenuItem(
                     text = { Text(stringResource(R.string.copy_path), style = MaterialTheme.typography.bodyMedium) },
                     onClick = {
                         moreOpen = false
@@ -574,10 +604,40 @@ private fun TaskTabRow(
                     },
                 )
                 DropdownMenuItem(
+                    text = { Text(stringResource(R.string.copy_task_id), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = {
+                        moreOpen = false
+                        if (activeId != null) copyToClipboard(ctx, activeId)
+                    },
+                )
+                DropdownMenuItem(
                     text = { Text(stringResource(R.string.copy_session_id), style = MaterialTheme.typography.bodyMedium) },
                     onClick = {
                         moreOpen = false
                         if (activeId != null) copyToClipboard(ctx, activeId)
+                    },
+                )
+            }
+            if (archiving) {
+                AlertDialog(
+                    onDismissRequest = { archiving = false },
+                    title = { Text(stringResource(R.string.task_archive)) },
+                    text = { Text(stringResource(R.string.task_archive_confirm)) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                archiving = false
+                                val tid = activeId
+                                if (tid != null) {
+                                    scope.launch { runCatching { repo?.archiveTask(tid) } }
+                                }
+                            },
+                        ) { Text(stringResource(R.string.task_archive)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { archiving = false }) {
+                            Text(stringResource(R.string.cancel))
+                        }
                     },
                 )
             }
