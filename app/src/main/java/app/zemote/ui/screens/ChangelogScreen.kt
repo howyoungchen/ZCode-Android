@@ -49,6 +49,13 @@ private data class ChangelogEntry(
 
 private val Changelogs = listOf(
     ChangelogEntry(
+        "v1.13.3", "2026-10-09",
+        listOf(
+            "修复文件更改明细与撤销预检取数通道（改走 zcode-agent），摘要可回退行汇总",
+            "模拟器复核补齐：仪表盘按钮/未连接状态、模型菜单飞出子菜单与徽章、明细与预检对话框",
+        ),
+    ),
+    ChangelogEntry(
         "v1.13.2", "2026-10-09",
         listOf(
             "任务菜单补齐「复制日志路径」「查看调用轨迹」，数据源对齐官方 zcodeTaskService",

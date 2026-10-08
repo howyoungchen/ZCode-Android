@@ -194,10 +194,14 @@ invalid_type 拒绝（`expected string, received undefined`）。null 值必须�
 
 `target.rowId` 与 `beforeRowId` 一样**必须是 number**（官方 Zod 校验）。
 
-**文件更改与撤销**：`conversationFileChangesV4(scope + {sessionId, target, baseRevision, baseLogEpoch})`
-→ `{files, additions, deletions, items:[{path, additions, deletions}]}`（「N 个文件已更改」展开明细）；
-`conversationFileRewindPreviewV4(同参)` → `{canApply, safeFiles[], unsafeFiles[], ignoredFiles[]}`
-（撤销前安全预检，条目 `{path, operationCount, reason?}`）；真正撤销仍走命令 `applyFileRewind`。
+**文件更改与撤销**（**zcode-agent 通道**，即桌面端 `zcodeAgentService`，不是 zcode-session；
+放错通道会报 `Method not found`）：`conversationFileChangesV4(scope + {sessionId, target,
+baseRevision, baseLogEpoch})` → `{files, additions, deletions, items:[{path, additions, deletions}]}`
+（「N 个文件已更改」展开明细）；`conversationFileRewindPreviewV4(同参)` →
+`{canApply, safeFiles[], unsafeFiles[], ignoredFiles[]}`（撤销前安全预检，条目
+`{path, operationCount, reason?}`）；真正撤销仍走命令 `applyFileRewind`。
+注意：桌面端 agent 运行时可能回 `guard.actionUnavailable`（旧回合/运行时不支持追踪），
+此时摘要退回 turnHeader 行上的 fileChanges 汇总，明细/预检对话框走空态与错误分支。
 
 **Git 通道（方法名即 RPC 名，首个参数 `{workspacePath, workspaceIdentity?}`）**：
 `getRepositorySummary`（分支/脏状态）、`getLocalBranches`、`switchBranch({targetBranchName})`、

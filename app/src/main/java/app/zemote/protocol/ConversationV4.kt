@@ -1692,7 +1692,7 @@ class ConversationV4Session private constructor(
         val target = rowTarget(row) ?: return@withContext null
         val res = runCatching {
             channels.call(
-                ChannelClient.Channel.ZCODE_SESSION, "conversationFileChangesV4",
+                ChannelClient.Channel.ZCODE_AGENT, "conversationFileChangesV4",
                 listOf(sessionArgs(target)), timeoutMs = 20_000,
                 isActiveCheck = { sessionScope.isActive },
             )
@@ -1719,7 +1719,7 @@ class ConversationV4Session private constructor(
         val target = rowTarget(row) ?: return@withContext null
         val res = runCatching {
             channels.call(
-                ChannelClient.Channel.ZCODE_SESSION, "conversationFileRewindPreviewV4",
+                ChannelClient.Channel.ZCODE_AGENT, "conversationFileRewindPreviewV4",
                 listOf(sessionArgs(target)), timeoutMs = 30_000,
                 isActiveCheck = { sessionScope.isActive },
             )

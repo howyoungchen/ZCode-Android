@@ -1,5 +1,19 @@
 # 更新日志
 
+## v1.13.3 — 2026-10-09
+
+修复文件更改明细与撤销预检的取数通道，并补齐模拟器复核证据。
+
+- `conversationFileChangesV4` / `conversationFileRewindPreviewV4` 改走 **zcode-agent 通道**
+  （桌面端 `zcodeAgentService`）；此前走 zcode-session 会被桌面端以 Method not found 拒绝，
+  摘要与明细永远为空
+- 消息「N 个文件已更改」摘要取数优先实时拉取，拉不到时退回 turnHeader 行上的
+  fileChanges 汇总；目标优先用消息行自身 entityId
+- 桌面端 agent 运行时对旧回合可能回 `guard.actionUnavailable`（不支持文件追踪），
+  明细/预检对话框按官方文案走空态与错误分支
+- 模拟器复核：仪表盘收起全部/整理任务按钮、远程工作区未连接/重新连接、
+  模型菜单飞出式子菜单与「个人」徽章范围、明细与预检对话框均已实拍验证
+
 ## v1.13.2 — 2026-10-09
 
 任务「更多」菜单补齐最后两项，数据源对齐官方 zcodeTaskService。

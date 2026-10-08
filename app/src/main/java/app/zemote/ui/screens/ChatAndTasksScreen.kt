@@ -490,7 +490,7 @@ fun ChatScreen(
             onOpenFileChanges = {
                 showTaskPanel = false
                 val turnRow = repo?.rows?.value?.lastOrNull {
-                    it.kind == ConvKinds.TURN_HEADER && it.fileChanges != null
+                    it.kind == ConvKinds.TURN_HEADER && it.entityId != null
                 }
                 if (turnRow != null) changesRow = turnRow
             },
@@ -1073,18 +1073,12 @@ private fun FileChangesDialog(
             }
         },
         confirmButton = {
-            if (row.canRewindFiles) {
-                TextButton(onClick = { showRewind = true }) {
-                    Text(stringResource(R.string.msg_undo))
-                }
-            } else {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            TextButton(onClick = { showRewind = true }) {
+                Text(stringResource(R.string.msg_undo))
             }
         },
         dismissButton = {
-            if (row.canRewindFiles) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-            }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 
@@ -1348,12 +1342,16 @@ private fun MessageTimeline(
             .filter { it.kind == ConvKinds.TURN_HEADER && !it.turnId.isNullOrBlank() }
             .associateBy { it.turnId!! }
     }
-    val turnChanges = remember(turnRows) {
-        turnRows.mapNotNull { (tid, row) -> row.fileChanges?.let { tid to it } }.toMap()
-    }
 
     // 折叠的回合（官方「已工作 N」行可收起本回合的思考/工具行，正文与用户消息保留）
     val collapsedTurns = remember { mutableStateOf(emptySet<String>()) }
+
+    // 文件更改明细加载器：官方对每条可见消息实时拉 conversationFileChangesV4，
+    // turnHeader 行上的 fileChanges 只是偶发缓存，不能依赖（实测常缺失）。
+    val loadRepoState = rememberUpdatedState(repo)
+    val loadChanges: suspend (ConvRow) -> app.zemote.protocol.FileChangesDetail? = remember {
+        { row -> runCatching { loadRepoState.value?.fileChangesDetail(row) }.getOrNull() }
+    }
 
     // 消息操作：复制在组件内完成，反馈/分叉/撤销/编辑走协议命令
     val actionRepoState = rememberUpdatedState(repo)
@@ -1606,10 +1604,9 @@ private fun MessageTimeline(
                 when (item) {
                     is DisplayItem.Message -> {
                         val lastRow = item.rows.last()
-                        val fileChanges = turnChanges[lastRow.turnId]
                         val turnRow = turnRows[lastRow.turnId]
                         FadeInContainer(item.key) {
-                            AssistantMessageBlock(item.rows, turnRow, fileChanges, onRowAction, onShowChanges)
+                            AssistantMessageBlock(item.rows, turnRow, loadChanges, onRowAction, onShowChanges)
                         }
                     }
                     is DisplayItem.Single -> {
@@ -1618,7 +1615,6 @@ private fun MessageTimeline(
                             visibleItems.drop(index + 1).firstNotNullOfOrNull { it.firstIssuedAt() }
                         } else null
                         val row = item.row
-                        val fileChanges = if (row.kind == ConvKinds.ASSISTANT_TEXT) turnChanges[row.turnId] else null
                         val collapsed = collapsedTurns.value.contains(row.turnId)
                         val toggleTurn = {
                             val tid = row.turnId
@@ -1639,7 +1635,7 @@ private fun MessageTimeline(
                                 TimelineRow(
                                     row, loadAttachment, nextIssuedAt,
                                     onOpenSubagent = openSub, onAction = onRowAction,
-                                    turnFileChanges = fileChanges,
+                                    loadChanges = loadChanges,
                                     turnRow = turnRows[row.turnId],
                                     onShowChanges = onShowChanges,
                                     turnCollapsed = collapsed,
@@ -1710,7 +1706,7 @@ private fun TimelineRow(
     nextIssuedAt: Long? = null,
     onOpenSubagent: (ConvRow) -> Unit = {},
     onAction: (RowAction, ConvRow) -> Unit = { _, _ -> },
-    turnFileChanges: app.zemote.protocol.FileChanges? = null,
+    loadChanges: (suspend (ConvRow) -> app.zemote.protocol.FileChangesDetail?)? = null,
     turnRow: ConvRow? = null,
     onShowChanges: (ConvRow) -> Unit = {},
     turnCollapsed: Boolean = false,
@@ -1730,7 +1726,7 @@ private fun TimelineRow(
                         .fillMaxWidth()
                         .padding(vertical = 6.dp),
                 )
-                MessageActionRow(row, turnRow, turnFileChanges, onAction, onShowChanges)
+                MessageActionRow(row, turnRow, loadChanges, onAction, onShowChanges)
             }
         }
         ConvKinds.TURN_HEADER -> TurnDurationRow(row, turnCollapsed, onToggleTurn)
@@ -1811,7 +1807,7 @@ private fun TurnDurationRow(row: ConvRow, collapsed: Boolean, onToggle: () -> Un
 private fun AssistantMessageBlock(
     rows: List<ConvRow>,
     turnRow: ConvRow?,
-    turnFileChanges: app.zemote.protocol.FileChanges?,
+    loadChanges: (suspend (ConvRow) -> app.zemote.protocol.FileChangesDetail?)?,
     onAction: (RowAction, ConvRow) -> Unit,
     onShowChanges: (ConvRow) -> Unit,
 ) {
@@ -1826,7 +1822,7 @@ private fun AssistantMessageBlock(
                 )
             }
         }
-        MessageActionRow(rows.last(), turnRow, turnFileChanges, onAction, onShowChanges)
+        MessageActionRow(rows.last(), turnRow, loadChanges, onAction, onShowChanges)
     }
 }
 
@@ -1838,18 +1834,31 @@ private fun AssistantMessageBlock(
 private fun MessageActionRow(
     row: ConvRow,
     turnRow: ConvRow?,
-    fileChanges: app.zemote.protocol.FileChanges?,
+    loadChanges: (suspend (ConvRow) -> app.zemote.protocol.FileChangesDetail?)?,
     onAction: (RowAction, ConvRow) -> Unit,
     onShowChanges: (ConvRow) -> Unit,
 ) {
+    // 官方语义：消息块实时拉 conversationFileChangesV4；拉不到时退回
+    // turnHeader 行上的 fileChanges 汇总（部分运行时会下发，汇总足以显示摘要）。
+    var fetched by remember(row.rowId) {
+        mutableStateOf<app.zemote.protocol.FileChangesDetail?>(null)
+    }
+    LaunchedEffect(turnRow?.rowId, row.rowId) {
+        val target = if (row.entityId != null) row else turnRow
+        if (loadChanges != null && target != null && target.entityId != null) {
+            fetched = loadChanges(target)
+        }
+    }
+    val fileChanges = fetched ?: turnRow?.fileChanges?.let { fc ->
+        app.zemote.protocol.FileChangesDetail(fc.files, fc.additions, fc.deletions, emptyList())
+    }
     val ctx = LocalContext.current
     val subtlest = app.zemote.ui.theme.subtlestColor()
     val scope = rememberCoroutineScope()
 
     // 回合文件更改摘要 + 撤销（官方「N 个文件已更改 +a -d」）
-    if (fileChanges != null && fileChanges.state != "reverted" &&
-        (fileChanges.files > 0 || fileChanges.additions > 0 || fileChanges.deletions > 0)
-    ) {
+    val fc = fileChanges
+    if (fc != null && (fc.files > 0 || fc.additions > 0 || fc.deletions > 0)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 2.dp),
@@ -1858,21 +1867,20 @@ private fun MessageActionRow(
             Text(
                 stringResource(
                     R.string.msg_changes,
-                    fileChanges.files,
-                    fileChanges.additions,
-                    fileChanges.deletions,
+                    fc.files,
+                    fc.additions,
+                    fc.deletions,
                 ),
                 style = MaterialTheme.typography.labelSmall,
                 color = subtlest,
                 modifier = Modifier.clickable {
-                    val target = turnRow ?: row
-                    onShowChanges(target)
+                    onShowChanges(if (row.entityId != null) row else turnRow ?: row)
                 },
             )
-            if (row.canRewindFiles) {
+            if (row.canRewindFiles || fc.files > 0) {
                 Spacer(modifier = Modifier.width(4.dp))
                 TextButton(
-                    onClick = { onShowChanges(turnRow ?: row) },
+                    onClick = { onShowChanges(if (row.entityId != null) row else turnRow ?: row) },
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     modifier = Modifier.height(28.dp),
                 ) {
