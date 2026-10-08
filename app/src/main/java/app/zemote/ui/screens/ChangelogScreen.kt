@@ -49,6 +49,13 @@ private data class ChangelogEntry(
 
 private val Changelogs = listOf(
     ChangelogEntry(
+        "v1.13.2", "2026-10-09",
+        listOf(
+            "任务菜单补齐「复制日志路径」「查看调用轨迹」，数据源对齐官方 zcodeTaskService",
+            "「复制任务路径」改为复制任务快照文件路径，与官方语义一致",
+        ),
+    ),
+    ChangelogEntry(
         "v1.13.0", "2026-10-09",
         listOf(
             "状态侧栏新增 Git 工具：更改计数、切换分支、提交或推送（走 git 通道）",

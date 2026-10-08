@@ -1,5 +1,16 @@
 # 更新日志
 
+## v1.13.2 — 2026-10-09
+
+任务「更多」菜单补齐最后两项，数据源对齐官方 zcodeTaskService。
+
+- 「复制日志路径」：走 `getTaskNativeSessionLogFile` 取任务原生日志路径（取不到时提示不可用）
+- 「查看调用轨迹」：走 `getModelTrajectory` 打开「模型调用轨迹」对话框
+  （N 次调用 · token 汇总，逐次列出模型 / 输入输出 token / 分段内容）；
+  仅 ZCode Agent 会落盘 model-io，普通会话显示空态
+- 「复制任务路径」改为复制 `getTaskSessionFilePath` 的任务快照文件路径（与官方一致），
+  不再复制任务 ID
+
 ## v1.13.0 — 2026-10-09
 
 第二批界面对齐官方 Web 远控：状态侧栏 Git 工具、额度面板、模型菜单子菜单与仪表盘细节。

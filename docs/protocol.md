@@ -205,7 +205,12 @@ invalid_type 拒绝（`expected string, received undefined`）。null 值必须�
 `push`、`getIdentity`。状态侧栏「Git 工具」节的数据源。
 
 **任务列表通道（zcode-task）**：`setTaskPinned({taskId, pinned})`、`archiveTask({taskId})`、
-`setTaskUnread({taskId, unread})`（任务「更多」菜单的置顶/归档/标记未读）。
+`setTaskUnread({taskId, unread})`（任务「更多」菜单的置顶/归档/标记未读）；
+`getTaskSessionFilePath({taskId, workspacePath, workspaceIdentity?})` → `{path, exists}`
+（「复制任务路径」）、`getTaskNativeSessionLogFile(同参)` → `{provider, path, exists}`
+（「复制日志路径」）、`getModelTrajectory({taskId})`（「查看调用轨迹」：调用列表含
+`attempt/model/usage{input,output}/parts[{kind,text}]`，kind 取
+system|user|assistant|reasoning|tool-call|tool-result；仅 ZCode Agent 落盘 model-io，普通会话为空）。
 
 **额度（usage-stats 通道）**：`getEntitlementSnapshot({includeSubscription, preferredProviderId, …})`
 → `{quota:{limits:[{type:"TOKENS_LIMIT"|"TIME_LIMIT", unit, number, percentage?, remaining?, nextResetTime?}]}}`；

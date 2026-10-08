@@ -200,6 +200,21 @@ data class QuotaLimit(
     val nextResetTime: String?,
 )
 
+/** 模型调用轨迹的一次调用（官方 getModelTrajectory） */
+data class TrajectoryCall(
+    val attempt: Int?,
+    val model: String?,
+    val inputTokens: Long?,
+    val outputTokens: Long?,
+    val parts: List<TrajectoryPart>,
+)
+
+/** 调用内的一段内容（角色/思考/工具） */
+data class TrajectoryPart(
+    val kind: String,   // system | user | assistant | reasoning | tool-call | tool-result
+    val text: String,
+)
+
 object ConvKinds {
     const val TURN_HEADER = "turnHeader"
     const val USER_INPUT = "userInput"
@@ -1764,6 +1779,73 @@ class ConversationV4Session private constructor(
     /** 标记任务未读（官方 setTaskUnread） */
     suspend fun setTaskUnread(taskId: String, unread: Boolean): Boolean =
         taskCommand("setTaskUnread", taskId, mapOf("unread" to unread))
+
+    /** 任务快照文件路径（官方 getTaskSessionFilePath：「复制任务路径」数据源） */
+    suspend fun taskSessionFilePath(taskId: String): String? = withContext(Dispatchers.IO) {
+        val res = runCatching {
+            channels.call(
+                ChannelClient.Channel.ZCODE_TASK, "getTaskSessionFilePath",
+                listOf(scope() + mapOf("taskId" to taskId)),
+                timeoutMs = 15_000, isActiveCheck = { sessionScope.isActive },
+            )
+        }.getOrNull() as? Map<*, *> ?: return@withContext null
+        res["path"]?.toString()?.takeIf { it.isNotBlank() }
+    }
+
+    /** 任务原生日志路径（官方 getTaskNativeSessionLogFile：「复制日志路径」数据源） */
+    suspend fun taskNativeLogPath(taskId: String): String? = withContext(Dispatchers.IO) {
+        val res = runCatching {
+            channels.call(
+                ChannelClient.Channel.ZCODE_TASK, "getTaskNativeSessionLogFile",
+                listOf(scope() + mapOf("taskId" to taskId)),
+                timeoutMs = 15_000, isActiveCheck = { sessionScope.isActive },
+            )
+        }.getOrNull() as? Map<*, *> ?: return@withContext null
+        res["path"]?.toString()?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * 模型调用轨迹（官方 getModelTrajectory，「查看调用轨迹」数据源）。
+     * 仅 ZCode Agent 会落盘 model-io，普通会话返回空列表。
+     */
+    suspend fun modelTrajectory(taskId: String): List<TrajectoryCall>? = withContext(Dispatchers.IO) {
+        val res = runCatching {
+            channels.call(
+                ChannelClient.Channel.ZCODE_TASK, "getModelTrajectory",
+                listOf(mapOf("taskId" to taskId)),
+                timeoutMs = 30_000, isActiveCheck = { sessionScope.isActive },
+            )
+        }.getOrNull() ?: return@withContext null
+        @Suppress("UNCHECKED_CAST")
+        val calls = when (res) {
+            is List<*> -> res
+            is Map<*, *> -> (res["calls"] ?: res["entries"] ?: res["records"]) as? List<*>
+            else -> null
+        } ?: return@withContext emptyList()
+        calls.mapNotNull { raw ->
+            val m = raw as? Map<*, *> ?: return@mapNotNull null
+            val usage = m["usage"] as? Map<*, *>
+            TrajectoryCall(
+                attempt = (m["attempt"] as? Number)?.toInt(),
+                model = m["model"]?.toString(),
+                inputTokens = (usage?.get("input") as? Number)?.toLong()
+                    ?: (m["inputTokens"] as? Number)?.toLong(),
+                outputTokens = (usage?.get("output") as? Number)?.toLong()
+                    ?: (m["outputTokens"] as? Number)?.toLong(),
+                parts = ((m["parts"] as? List<*>) ?: (m["messages"] as? List<*>)).orEmpty()
+                    .mapNotNull { p ->
+                        val pm = p as? Map<*, *> ?: return@mapNotNull null
+                        val kind = pm["kind"]?.toString() ?: pm["role"]?.toString() ?: "message"
+                        val text = pm["text"]?.toString()
+                            ?: pm["content"]?.toString()
+                            ?: (pm["input"] as? String)
+                            ?: (pm["output"] as? String)
+                            ?: ""
+                        TrajectoryPart(kind, text)
+                    },
+            )
+        }
+    }
 
     // ── 套餐额度（官方 usageStatsService.getEntitlementSnapshot） ──
 

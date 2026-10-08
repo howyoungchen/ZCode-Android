@@ -518,6 +518,7 @@ private fun TaskTabRow(
     var moreOpen by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var archiving by remember { mutableStateOf(false) }
+    var trajectoryTaskId by remember { mutableStateOf<String?>(null) }
     val sessionEntries by (repo?.sessionEntries?.collectAsState()
         ?: remember { mutableStateOf(emptyList<app.zemote.protocol.SessionEntry>()) })
     val pendingInteractions by (repo?.pendingInteractions?.collectAsState()
@@ -610,7 +611,30 @@ private fun TaskTabRow(
                     text = { Text(stringResource(R.string.copy_task_id), style = MaterialTheme.typography.bodyMedium) },
                     onClick = {
                         moreOpen = false
-                        if (activeId != null) copyToClipboard(ctx, activeId)
+                        val tid = activeId
+                        if (tid != null) {
+                            scope.launch {
+                                // 官方「复制任务路径」= 任务快照文件路径（getTaskSessionFilePath）
+                                val path = runCatching { repo?.taskSessionFilePath(tid) }.getOrNull()
+                                if (path != null) copyToClipboard(ctx, path)
+                                else toast(ctx, R.string.path_unavailable)
+                            }
+                        }
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.copy_log_path), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = {
+                        moreOpen = false
+                        val tid = activeId
+                        if (tid != null) {
+                            scope.launch {
+                                // 官方「复制日志路径」= 任务原生日志路径（getTaskNativeSessionLogFile）
+                                val path = runCatching { repo?.taskNativeLogPath(tid) }.getOrNull()
+                                if (path != null) copyToClipboard(ctx, path)
+                                else toast(ctx, R.string.path_unavailable)
+                            }
+                        }
                     },
                 )
                 DropdownMenuItem(
@@ -622,8 +646,22 @@ private fun TaskTabRow(
                 )
                 HorizontalDivider()
                 DropdownMenuItem(
+                    text = { Text(stringResource(R.string.task_trajectory), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = {
+                        moreOpen = false
+                        if (activeId != null) trajectoryTaskId = activeId
+                    },
+                )
+                DropdownMenuItem(
                     text = { Text(stringResource(R.string.task_feedback), style = MaterialTheme.typography.bodyMedium) },
                     onClick = { moreOpen = false; onOpenFeedback() },
+                )
+            }
+            trajectoryTaskId?.let { tid ->
+                TrajectoryDialog(
+                    repo = repo,
+                    taskId = tid,
+                    onDismiss = { trajectoryTaskId = null },
                 )
             }
             if (archiving) {
@@ -830,6 +868,134 @@ private fun TaskPanelHost(
         },
         onDismiss = onDismiss,
     )
+}
+
+// ────────────────────────── 模型调用轨迹 ──────────────────────────
+
+private fun toast(ctx: android.content.Context, res: Int) {
+    android.widget.Toast.makeText(ctx, ctx.getString(res), android.widget.Toast.LENGTH_SHORT).show()
+}
+
+/**
+ * 模型调用轨迹对话框（官方 modelTrajectory 视图的移动简化版）：
+ * 汇总行（N 次调用 · token 用量）+ 每次调用的分段内容。
+ */
+@Composable
+private fun TrajectoryDialog(
+    repo: app.zemote.protocol.ConversationV4Session?,
+    taskId: String,
+    onDismiss: () -> Unit,
+) {
+    var calls by remember(taskId) { mutableStateOf<List<app.zemote.protocol.TrajectoryCall>?>(null) }
+    var failed by remember(taskId) { mutableStateOf(false) }
+    LaunchedEffect(taskId) {
+        val res = runCatching { repo?.modelTrajectory(taskId) }.getOrNull()
+        if (res == null) failed = true else calls = res
+    }
+    val subtlest = app.zemote.ui.theme.subtlestColor()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.trajectory_title), style = MaterialTheme.typography.titleSmall) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                when {
+                    calls == null && !failed -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(stringResource(R.string.trajectory_loading), style = MaterialTheme.typography.bodySmall)
+                    }
+                    failed -> Text(
+                        stringResource(R.string.trajectory_error),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    calls!!.isEmpty() -> Text(
+                        stringResource(R.string.trajectory_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    else -> {
+                        val list = calls!!
+                        val totalTokens = list.sumOf { (it.inputTokens ?: 0L) + (it.outputTokens ?: 0L) }
+                        Text(
+                            stringResource(R.string.trajectory_calls, list.size) +
+                                if (totalTokens > 0) " · $totalTokens tok" else "",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = subtlest,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            list.forEachIndexed { index, call ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 3.dp),
+                                ) {
+                                    Text(
+                                        call.attempt?.let { stringResource(R.string.trajectory_attempt, it) }
+                                            ?: "#${index + 1}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    if (call.model != null) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            call.model!!,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = subtlest,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                    if (call.inputTokens != null || call.outputTokens != null) {
+                                        Text(
+                                            "${call.inputTokens ?: 0} → ${call.outputTokens ?: 0}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = subtlest,
+                                        )
+                                    }
+                                }
+                                call.parts.forEach { part ->
+                                    if (part.text.isNotBlank()) {
+                                        Text(
+                                            "${trajectoryKindLabel(part.kind)} · ${part.text.take(120)}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = subtlest,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(start = 8.dp, bottom = 2.dp),
+                                        )
+                                    }
+                                }
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
+/** 轨迹分段类型标签（官方 modelTrajectory.role / reasoning / toolCall） */
+@Composable
+private fun trajectoryKindLabel(kind: String): String = when (kind) {
+    "system" -> stringResource(R.string.traj_system)
+    "user" -> stringResource(R.string.traj_user)
+    "assistant" -> stringResource(R.string.traj_assistant)
+    "reasoning" -> stringResource(R.string.traj_reasoning)
+    "tool-call" -> stringResource(R.string.traj_tool_call)
+    "tool-result" -> stringResource(R.string.traj_tool_result)
+    else -> kind
 }
 
 // ────────────────────────── 文件更改明细与撤销预检 ──────────────────────────
